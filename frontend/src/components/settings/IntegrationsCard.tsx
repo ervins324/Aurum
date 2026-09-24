@@ -12,8 +12,8 @@ import {
   useDeleteIntegration,
   useSyncIntegration,
 } from "@/hooks/useIntegrations";
-import { useAccounts } from "@/hooks/useAccounts";
-import type { IntegrationSyncResult } from "@/types";
+import { useAccounts, useCreateAccount } from "@/hooks/useAccounts";
+import type { AccountType, IntegrationSyncResult } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Shared sub-components
@@ -68,6 +68,133 @@ function SyncResultBanner({ result }: { result: IntegrationSyncResult }) {
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// AccountSelector — dropdown with inline "Create new account" option
+// ---------------------------------------------------------------------------
+
+const SENTINEL_CREATE = "__create__";
+
+/** Account type options available for new account creation. */
+const ACCOUNT_TYPE_OPTIONS: AccountType[] = [
+  "debit_card",
+  "checking",
+  "savings",
+  "credit_card",
+  "cash",
+  "other",
+];
+
+interface AccountSelectorProps {
+  id: string;
+  value: string;
+  onChange: (accountId: string) => void;
+}
+
+function AccountSelector({ id, value, onChange }: AccountSelectorProps) {
+  const { t } = useTranslation();
+  const { data: accounts, refetch } = useAccounts();
+  const createAccount = useCreateAccount();
+
+  // Inline create-new-account form state
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState<AccountType>("debit_card");
+  const [creating, setCreating] = useState(false);
+
+  function handleSelectChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const val = e.target.value;
+    if (val === SENTINEL_CREATE) {
+      // Show the inline creation form instead of passing the sentinel upward
+      setIsCreating(true);
+      setNewName("");
+      setNewType("debit_card");
+    } else {
+      setIsCreating(false);
+      onChange(val);
+    }
+  }
+
+  async function handleCreate() {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const created = await createAccount.mutateAsync({ name: newName.trim(), type: newType });
+      // Refresh the accounts list, then auto-select the newly created account
+      await refetch();
+      onChange(String(created.id));
+      setIsCreating(false);
+    } catch {
+      // Error state is surfaced by the disabled Create button — nothing else to show here
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function handleCancelCreate() {
+    setIsCreating(false);
+    // Keep the previously selected account (don't reset value)
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Select id={id} value={isCreating ? SENTINEL_CREATE : value} onChange={handleSelectChange}>
+        <option value="">{t("settings.integrations.selectAccount")}</option>
+        {accounts?.map((acc) => (
+          <option key={acc.id} value={acc.id}>
+            {acc.name}
+          </option>
+        ))}
+        {/* Always-visible sentinel that opens the inline creation form */}
+        <option value={SENTINEL_CREATE}>{t("settings.integrations.createNewAccount")}</option>
+      </Select>
+
+      {/* Inline creation form — shown only when the sentinel is selected */}
+      {isCreating && (
+        <div className="rounded-md border border-gridline bg-surface-1 p-3 flex flex-col gap-2">
+          <div>
+            <Label htmlFor={`${id}-new-name`}>{t("settings.integrations.newAccountName")}</Label>
+            <Input
+              id={`${id}-new-name`}
+              type="text"
+              placeholder={t("settings.integrations.newAccountNamePlaceholder")}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor={`${id}-new-type`}>{t("settings.integrations.newAccountType")}</Label>
+            <Select
+              id={`${id}-new-type`}
+              value={newType}
+              onChange={(e) => setNewType(e.target.value as AccountType)}
+            >
+              {ACCOUNT_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {t(`account.type.${type}` as Parameters<typeof t>[0])}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleCreate}
+              disabled={!newName.trim() || creating}
+              className="text-xs py-1.5"
+            >
+              {creating ? t("common.saving") : t("settings.integrations.createAccountButton")}
+            </Button>
+            <Button variant="secondary" onClick={handleCancelCreate} className="text-xs py-1.5">
+              {t("common.cancel")}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Monobank section
 // ---------------------------------------------------------------------------
 
@@ -80,7 +207,6 @@ function toDateInput(value: string | null | undefined, fallback: string): string
 function MonobankSection() {
   const { t } = useTranslation();
   const { data: integrations } = useIntegrations();
-  const { data: accounts } = useAccounts();
   const setMono = useSetMonobankIntegration();
   const deleteMono = useDeleteIntegration();
   const syncMono = useSyncIntegration();
@@ -235,18 +361,11 @@ function MonobankSection() {
           </div>
           <div>
             <Label htmlFor="mono-account">{t("settings.integrations.accountLabel")}</Label>
-            <Select
+            <AccountSelector
               id="mono-account"
               value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-            >
-              <option value="">{t("settings.integrations.selectAccount")}</option>
-              {accounts?.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name}
-                </option>
-              ))}
-            </Select>
+              onChange={setAccountId}
+            />
           </div>
           <div className="flex items-end gap-2 sm:col-span-2">
             <Button
@@ -272,7 +391,6 @@ function MonobankSection() {
 function BybitSection() {
   const { t } = useTranslation();
   const { data: integrations } = useIntegrations();
-  const { data: accounts } = useAccounts();
   const setBybit = useSetBybitIntegration();
   const deleteBybit = useDeleteIntegration();
   const syncBybit = useSyncIntegration();
@@ -401,18 +519,11 @@ function BybitSection() {
           </div>
           <div>
             <Label htmlFor="bybit-account">{t("settings.integrations.accountLabel")}</Label>
-            <Select
+            <AccountSelector
               id="bybit-account"
               value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-            >
-              <option value="">{t("settings.integrations.selectAccount")}</option>
-              {accounts?.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name}
-                </option>
-              ))}
-            </Select>
+              onChange={setAccountId}
+            />
           </div>
           <p className="text-xs text-text-muted self-end sm:col-span-2">
             {t("settings.integrations.bybit.hint")}

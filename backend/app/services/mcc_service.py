@@ -198,10 +198,19 @@ async def resolve_category_id_by_mcc(
     whose kind aligns with the transaction type (EXPENSE for expenses,
     INCOME for income).
 
+    For MCC 4829 (wire / money transfers) the category is auto-created if it
+    doesn't exist yet — see resolve_or_create_money_transfers_category.
+
     Returns None if no MCC mapping exists or no matching category is found.
     """
     if mcc is None or mcc not in MCC_CATEGORY_MAP:
         return None
+
+    # MCC 4829 always gets the dedicated "Money Transfers" category,
+    # auto-creating it when it's absent (handles existing installs that
+    # pre-date the seeded default).
+    if mcc == 4829:
+        return await resolve_or_create_money_transfers_category(session, tx_type)
 
     target = MCC_CATEGORY_MAP[mcc]
     candidates = [target] if isinstance(target, str) else list(target)
@@ -220,6 +229,46 @@ async def resolve_category_id_by_mcc(
         if cat_id is not None:
             return cat_id
     return None
+
+
+async def resolve_or_create_money_transfers_category(
+    session: AsyncSession,
+    tx_type: TransactionType,
+) -> int:
+    """Find or create the 'Money Transfers' category for MCC 4829.
+
+    Searches existing categories by the canonical names used by the seed
+    (case-insensitive). If none is found, automatically creates the category
+    so that wire-transfer transactions are always categorised correctly,
+    even on installs that pre-date the seeded 'Money Transfers' default.
+    """
+    expected_kind = (
+        CategoryKind.EXPENSE if tx_type == TransactionType.EXPENSE else CategoryKind.INCOME
+    )
+    candidate_names = ["money transfers", "transfers", "wire transfers"]
+
+    result = await session.execute(
+        select(Category.id).where(
+            func.lower(Category.name).in_(candidate_names),
+            Category.kind == expected_kind,
+        ).order_by(Category.id.asc()).limit(1)
+    )
+    cat_id = result.scalar_one_or_none()
+    if cat_id is not None:
+        return cat_id
+
+    # Auto-create the category so MCC 4829 is always mapped on any install
+    new_cat = Category(
+        name="Money Transfers",
+        kind=expected_kind,
+        icon="arrow-left-right",
+        color="#6b7280",
+        sort_order=98,
+        is_default=True,
+    )
+    session.add(new_cat)
+    await session.flush()
+    return new_cat.id
 
 
 async def resolve_fallback_other_category(

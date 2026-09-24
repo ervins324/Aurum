@@ -124,16 +124,45 @@ async def test_mcc_category_resolution(test_sessionmaker, categories: dict):
         if "Transportation" in categories:
             assert cat_id_postal == categories["Transportation"]["id"]
 
-        # Create custom categories to test 4829, 6012, 8999 resolution
+        # 4829 now resolves to the seeded "Money Transfers" expense category.
+        # Looked up directly by name+kind since the categories fixture dict
+        # deduplicates by name when both an expense and income category share it.
+        from sqlalchemy import select as sa_select
         from app.models.category import Category
         from app.models.enums import CategoryKind
-        custom_transfers = Category(name="Money Transfers", kind=CategoryKind.EXPENSE, color="#123456", is_default=False)
+        expense_transfers_row = await session.execute(
+            sa_select(Category.id).where(
+                Category.name == "Money Transfers",
+                Category.kind == CategoryKind.EXPENSE,
+            ).limit(1)
+        )
+        expense_transfers_id = expense_transfers_row.scalar_one_or_none()
+        assert expense_transfers_id is not None, "Seeded 'Money Transfers' EXPENSE category must exist"
+
+        cat_id_transfers = await resolve_category_id_by_mcc(session, 4829, TransactionType.EXPENSE)
+        assert cat_id_transfers is not None
+        assert cat_id_transfers == expense_transfers_id
+
+        # Income-side MCC 4829 resolution uses the seeded income "Money Transfers" category
+        income_transfers_row = await session.execute(
+            sa_select(Category.id).where(
+                Category.name == "Money Transfers",
+                Category.kind == CategoryKind.INCOME,
+            ).limit(1)
+        )
+        income_transfers_id = income_transfers_row.scalar_one_or_none()
+        assert income_transfers_id is not None, "Seeded 'Money Transfers' INCOME category must exist"
+
+        cat_id_transfers_income = await resolve_category_id_by_mcc(session, 4829, TransactionType.INCOME)
+        assert cat_id_transfers_income is not None
+        assert cat_id_transfers_income == income_transfers_id
+
+        # Create custom categories to test 6012, 8999 resolution
         custom_finance = Category(name="Finance", kind=CategoryKind.EXPENSE, color="#234567", is_default=False)
         custom_prof = Category(name="Professional Services", kind=CategoryKind.EXPENSE, color="#345678", is_default=False)
-        session.add_all([custom_transfers, custom_finance, custom_prof])
+        session.add_all([custom_finance, custom_prof])
         await session.commit()
 
-        assert await resolve_category_id_by_mcc(session, 4829, TransactionType.EXPENSE) == custom_transfers.id
         assert await resolve_category_id_by_mcc(session, 6012, TransactionType.EXPENSE) == custom_finance.id
         assert await resolve_category_id_by_mcc(session, 8999, TransactionType.EXPENSE) == custom_prof.id
 

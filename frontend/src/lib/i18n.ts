@@ -561,6 +561,13 @@ const ru = {
   "category.benefits": "Пособия и соцвыплаты",
   "category.itemSales": "Продажа личных вещей",
   "category.otherIncome": "Прочий доход",
+  "category.moneyTransfers": "Денежные переводы",
+
+  "settings.integrations.createNewAccount": "Создать новый счёт…",
+  "settings.integrations.newAccountName": "Название счёта",
+  "settings.integrations.newAccountType": "Тип счёта",
+  "settings.integrations.newAccountNamePlaceholder": "Monobank, Bybit Card…",
+  "settings.integrations.createAccountButton": "Создать",
 
   "months.jan": "Янв",
   "months.feb": "Фев",
@@ -1129,6 +1136,13 @@ const en: Record<keyof typeof ru, string> = {
   "category.benefits": "Benefits",
   "category.itemSales": "Item Sales",
   "category.otherIncome": "Other Income",
+  "category.moneyTransfers": "Money Transfers",
+
+  "settings.integrations.createNewAccount": "Create new account…",
+  "settings.integrations.newAccountName": "Account name",
+  "settings.integrations.newAccountType": "Account type",
+  "settings.integrations.newAccountNamePlaceholder": "Monobank, Bybit Card…",
+  "settings.integrations.createAccountButton": "Create",
 
   "months.jan": "Jan",
   "months.feb": "Feb",

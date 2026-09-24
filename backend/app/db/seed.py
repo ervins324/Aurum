@@ -24,6 +24,7 @@ DEFAULT_EXPENSE_CATEGORIES = [
     ("Shopping", "shopping-bag", "#eda100"),  # slot 4 yellow
     ("Entertainment", "clapperboard", "#e87ba4"),  # slot 5 magenta
     ("Subscriptions", "repeat", "#008300"),  # slot 6 green
+    ("Money Transfers", "arrow-left-right", "#6b7280"),  # wire transfers / MCC 4829
     ("Other", "more-horizontal", "#898781"),  # slot 9 gray
 ]
 
@@ -36,6 +37,7 @@ DEFAULT_INCOME_CATEGORIES = [
     ("Rental Income", "key", "#eda100"),
     ("Benefits", "hand-coins", "#008300"),
     ("Item Sales", "tag", "#e34948"),
+    ("Money Transfers", "arrow-left-right", "#6b7280"),  # wire transfers / MCC 4829 income
     ("Other Income", "plus-circle", "#898781"),
 ]
 

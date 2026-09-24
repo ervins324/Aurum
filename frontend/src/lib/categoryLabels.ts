@@ -22,6 +22,7 @@ const DEFAULT_CATEGORY_KEYS: Record<string, TranslationKey> = {
   "Rental Income": "category.rentalIncome",
   Benefits: "category.benefits",
   "Item Sales": "category.itemSales",
+  "Money Transfers": "category.moneyTransfers",
   "Other Income": "category.otherIncome",
 };
 
