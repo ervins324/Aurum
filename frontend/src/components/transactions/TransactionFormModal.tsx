@@ -32,6 +32,7 @@ const EMPTY_FORM = {
   merchant: "",
   notes: "",
   date: todayIso(),
+  time: "",
 };
 
 interface SplitRowState {
@@ -87,6 +88,19 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
       // category was since deleted, there's nothing to derive from; the
       // base field is left blank and the user has to pick one again.
       const baseCategory = hasSplits ? transaction.splits.find((split) => split.category)?.category : null;
+      let initialTime = "";
+      if (transaction.transaction_time) {
+        try {
+          const d = new Date(transaction.transaction_time);
+          if (!isNaN(d.getTime())) {
+            const hh = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            initialTime = `${hh}:${mm}`;
+          }
+        } catch {
+          initialTime = "";
+        }
+      }
       setForm({
         type: transaction.type,
         account_id: String(transaction.account_id),
@@ -103,6 +117,7 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
         merchant: transaction.merchant ?? "",
         notes: transaction.notes ?? "",
         date: transaction.date,
+        time: initialTime,
       });
       setTags(transaction.tags);
       setSplitMode(hasSplits);
@@ -229,6 +244,14 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
       splits = [];
     }
 
+    let transactionTime: string | null = null;
+    if (form.time) {
+      const localDateTime = new Date(`${form.date}T${form.time}:00`);
+      if (!isNaN(localDateTime.getTime())) {
+        transactionTime = localDateTime.toISOString();
+      }
+    }
+
     const payload: TransactionInput = {
       type: form.type,
       account_id: Number(form.account_id),
@@ -244,6 +267,7 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
       merchant: form.merchant || null,
       notes: form.notes || null,
       date: form.date,
+      transaction_time: transactionTime,
       tag_ids: tags.map((tag) => tag.id),
       splits,
     };
@@ -284,7 +308,7 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <Label htmlFor="amount">{t("transactions.form.amountLabel")}</Label>
             <Input
@@ -305,6 +329,16 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
               required
               value={form.date}
               onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="time">{t("transactions.form.timeLabel")}</Label>
+            <Input
+              id="time"
+              type="time"
+              step="60"
+              value={form.time}
+              onChange={(event) => setForm((prev) => ({ ...prev, time: event.target.value }))}
             />
           </div>
         </div>

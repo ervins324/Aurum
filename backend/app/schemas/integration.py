@@ -5,6 +5,8 @@ Instead it returns:
   - is_configured: whether credentials are stored
   - token_preview / key_preview: a masked glimpse (first 3 + last 3 chars)
 """
+from __future__ import annotations
+
 from datetime import date as date_
 from datetime import datetime
 
@@ -16,12 +18,14 @@ class IntegrationRead(BaseModel):
 
     provider: str
     is_configured: bool
+    is_syncing: bool = False
     # Masked preview shown in the UI so the user knows something is stored,
     # e.g. "uUm…xQ9" for a Monobank token.
     token_preview: str | None = None
     key_preview: str | None = None
     account_id: int | None
     last_synced_at: datetime | None
+    last_sync_result: IntegrationSyncResult | None = None
 
 
 class MonobankIntegrationSet(BaseModel):

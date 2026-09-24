@@ -55,6 +55,8 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     4112: "Transportation",     # Passenger railways
     4121: "Transportation",     # Taxis / limousines
     4131: "Transportation",     # Bus lines
+    4215: ("Logistics", "Transportation"),  # Courier services / logistics / freight delivery
+    9402: ("Logistics", "Transportation"),  # Postal Services — Government Only
     4511: "Transportation",     # Airlines
     3000: "Transportation",     # Airlines
     4582: "Transportation",     # Airport terminals
@@ -170,11 +172,17 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     # ── Veterinary ──
     742: "Shopping",            # Veterinary services
 
-    # ── Financial services — intentionally unmapped ──
-    # 6009, 6010, 6011, 6012, 6050, 6051, 6211, 6300, 6381, 6513, 6532,
+    # ── Financial services & money transfers ──
+    4829: ("Money Transfers", "Transfers"),  # Wire / money transfers
+    6012: ("Finance", "Financial Services", "Financial"),  # Financial institutions — merchandise, services, debt
+
+    # ── Professional Services ──
+    8999: ("Professional Services", "Services"),  # Professional Services - Not Elsewhere Classified
+
+    # ── Other financial services — intentionally unmapped ──
+    # 6009, 6010, 6011, 6050, 6051, 6211, 6300, 6381, 6513, 6532,
     # 6533, 6535, 6536, 6537, 6538, 6540, 6611, 6760 → leave None
-    # These are typically internal transfers, ATM withdrawals, or card-to-card
-    # operations that should not be auto-categorised.
+    # (they will fall back to "Other" via resolve_fallback_other_category)
 }
 
 
@@ -185,8 +193,8 @@ async def resolve_category_id_by_mcc(
 ) -> int | None:
     """Look up a category_id by MCC code.
 
-    Matches the English category name from MCC_CATEGORY_MAP against the
-    user's existing categories (case-insensitive).  Only matches categories
+    Matches candidate category names from MCC_CATEGORY_MAP against the
+    user's existing categories (case-insensitive). Only matches categories
     whose kind aligns with the transaction type (EXPENSE for expenses,
     INCOME for income).
 
@@ -195,15 +203,65 @@ async def resolve_category_id_by_mcc(
     if mcc is None or mcc not in MCC_CATEGORY_MAP:
         return None
 
-    category_name = MCC_CATEGORY_MAP[mcc]
+    target = MCC_CATEGORY_MAP[mcc]
+    candidates = [target] if isinstance(target, str) else list(target)
     expected_kind = (
         CategoryKind.EXPENSE if tx_type == TransactionType.EXPENSE else CategoryKind.INCOME
     )
 
+    for candidate in candidates:
+        result = await session.execute(
+            select(Category.id).where(
+                func.lower(Category.name) == candidate.lower(),
+                Category.kind == expected_kind,
+            ).limit(1)
+        )
+        cat_id = result.scalar_one_or_none()
+        if cat_id is not None:
+            return cat_id
+    return None
+
+
+async def resolve_fallback_other_category(
+    session: AsyncSession,
+    tx_type: TransactionType,
+) -> int:
+    """Find or create an 'Other' category for transactions without a category.
+
+    Searches existing user categories for names like 'Other', 'Others', 'Other Expense',
+    'Разное', 'Другое'. If none exists in the database, automatically creates a default
+    'Other' category so that every transaction is categorized.
+    """
+    expected_kind = (
+        CategoryKind.EXPENSE if tx_type == TransactionType.EXPENSE else CategoryKind.INCOME
+    )
+    candidate_names = (
+        ["other", "others", "other expense", "other expenses", "разное", "другое"]
+        if expected_kind == CategoryKind.EXPENSE
+        else ["other income", "other", "others", "другой доход", "разное", "другое"]
+    )
+
     result = await session.execute(
         select(Category.id).where(
-            func.lower(Category.name) == category_name.lower(),
+            func.lower(Category.name).in_(candidate_names),
             Category.kind == expected_kind,
-        )
+        ).order_by(Category.id.asc()).limit(1)
     )
-    return result.scalar_one_or_none()
+    cat_id = result.scalar_one_or_none()
+    if cat_id is not None:
+        return cat_id
+
+    # Create default fallback category
+    fallback_name = "Other" if expected_kind == CategoryKind.EXPENSE else "Other Income"
+    fallback_icon = "more-horizontal" if expected_kind == CategoryKind.EXPENSE else "plus-circle"
+    new_cat = Category(
+        name=fallback_name,
+        kind=expected_kind,
+        icon=fallback_icon,
+        color="#898781",
+        sort_order=99,
+        is_default=True,
+    )
+    session.add(new_cat)
+    await session.flush()
+    return new_cat.id

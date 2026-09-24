@@ -103,6 +103,8 @@ async def test_mcc_category_resolution(test_sessionmaker, categories: dict):
     from app.models.enums import TransactionType
     from app.services.mcc_service import resolve_category_id_by_mcc
 
+    from app.services.mcc_service import resolve_fallback_other_category
+
     async with test_sessionmaker() as session:
         # 5411 is Groceries (seeded in categories fixture)
         cat_id = await resolve_category_id_by_mcc(session, 5411, TransactionType.EXPENSE)
@@ -114,7 +116,32 @@ async def test_mcc_category_resolution(test_sessionmaker, categories: dict):
         assert cat_id_dining is not None
         assert cat_id_dining == categories["Dining Out"]["id"]
 
-        # Unknown or None MCC returns None
+        # 4215 and 9402 map to ("Logistics", "Transportation") -> matches Transportation
+        cat_id_logistics = await resolve_category_id_by_mcc(session, 4215, TransactionType.EXPENSE)
+        if "Transportation" in categories:
+            assert cat_id_logistics == categories["Transportation"]["id"]
+        cat_id_postal = await resolve_category_id_by_mcc(session, 9402, TransactionType.EXPENSE)
+        if "Transportation" in categories:
+            assert cat_id_postal == categories["Transportation"]["id"]
+
+        # Create custom categories to test 4829, 6012, 8999 resolution
+        from app.models.category import Category
+        from app.models.enums import CategoryKind
+        custom_transfers = Category(name="Money Transfers", kind=CategoryKind.EXPENSE, color="#123456", is_default=False)
+        custom_finance = Category(name="Finance", kind=CategoryKind.EXPENSE, color="#234567", is_default=False)
+        custom_prof = Category(name="Professional Services", kind=CategoryKind.EXPENSE, color="#345678", is_default=False)
+        session.add_all([custom_transfers, custom_finance, custom_prof])
+        await session.commit()
+
+        assert await resolve_category_id_by_mcc(session, 4829, TransactionType.EXPENSE) == custom_transfers.id
+        assert await resolve_category_id_by_mcc(session, 6012, TransactionType.EXPENSE) == custom_finance.id
+        assert await resolve_category_id_by_mcc(session, 8999, TransactionType.EXPENSE) == custom_prof.id
+
+        # Fallback category resolves or creates Other
+        fallback_id = await resolve_fallback_other_category(session, TransactionType.EXPENSE)
+        assert fallback_id is not None
+
+        # Unknown or None MCC returns None (before fallback is applied)
         assert await resolve_category_id_by_mcc(session, 99999, TransactionType.EXPENSE) is None
         assert await resolve_category_id_by_mcc(session, None, TransactionType.EXPENSE) is None
 
@@ -190,4 +217,21 @@ async def test_transaction_time_storage_and_filtering(client: AsyncClient, accou
     items_time = time_filtered.json()["items"]
     assert len(items_time) == 1
     assert items_time[0]["description"] == "Evening dinner"
+
+    # Test editing transaction_time via PATCH
+    updated_dt = "2026-09-24T12:00:00Z"
+    patch_resp = await client.patch(
+        f"/transactions/{tx1_data['id']}",
+        json={"transaction_time": updated_dt},
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["transaction_time"] is not None
+
+    # Test clearing transaction_time via PATCH
+    clear_resp = await client.patch(
+        f"/transactions/{tx1_data['id']}",
+        json={"transaction_time": None},
+    )
+    assert clear_resp.status_code == 200
+    assert clear_resp.json()["transaction_time"] is None
 

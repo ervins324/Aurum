@@ -24,6 +24,7 @@ DEFAULT_EXPENSE_CATEGORIES = [
     ("Shopping", "shopping-bag", "#eda100"),  # slot 4 yellow
     ("Entertainment", "clapperboard", "#e87ba4"),  # slot 5 magenta
     ("Subscriptions", "repeat", "#008300"),  # slot 6 green
+    ("Other", "more-horizontal", "#898781"),  # slot 9 gray
 ]
 
 DEFAULT_INCOME_CATEGORIES = [

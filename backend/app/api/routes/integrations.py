@@ -6,7 +6,7 @@ PUT  /integrations/bybit      → save/update Bybit key + secret + account
 DELETE /integrations/{provider} → remove credentials
 POST /integrations/{provider}/sync → trigger a sync run
 """
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_session
@@ -18,8 +18,10 @@ from app.schemas.integration import (
     MonobankSyncRequest,
 )
 from app.services.integration_service import (
+    _get_integration,
     delete_integration,
     list_integrations,
+    start_background_sync,
     sync_bybit,
     sync_monobank,
     upsert_bybit,
@@ -70,18 +72,36 @@ async def remove_integration(
 async def trigger_sync(
     provider: str,
     payload: MonobankSyncRequest = Body(default=MonobankSyncRequest()),
+    background: bool = Query(default=True, description="Run sync as detached background task"),
     session: AsyncSession = Depends(get_session),
 ) -> IntegrationSyncResult:
     """Trigger a sync for the given provider.
 
+    By default, runs as a detached background task on the backend, allowing
+    the client to navigate between tabs or close the browser without interrupting
+    the sync process. Pass ?background=false to await sync completion synchronously.
+
     For Monobank, an optional JSON body with sync_from / sync_to dates
-    narrows the sync window.  Without them, defaults to _MONO_EPOCH → today.
-    Syncing a narrow period (e.g. last 7 days) skips the 61-second waits
-    and finishes in seconds.
+    narrows the sync window. Without them, defaults to _MONO_EPOCH → today.
     """
+    if provider not in _VALID_PROVIDERS:
+        raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+
+    # Check configuration on request session for instant validation feedback
+    integration = await _get_integration(session, provider)
+    if (
+        integration is None
+        or (provider == "monobank" and not integration.token_enc)
+        or (provider == "bybit" and not integration.api_key_enc)
+    ):
+        return IntegrationSyncResult(provider=provider, synced_count=0, skipped_count=0, error="Not configured")
+    if integration.account_id is None:
+        return IntegrationSyncResult(provider=provider, synced_count=0, skipped_count=0, error="No account linked")
+
+    if background:
+        return await start_background_sync(provider, sync_from=payload.sync_from, sync_to=payload.sync_to)
+
     if provider == "monobank":
         return await sync_monobank(session, sync_from=payload.sync_from, sync_to=payload.sync_to)
-    if provider == "bybit":
-        return await sync_bybit(session)
-    raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+    return await sync_bybit(session)
 

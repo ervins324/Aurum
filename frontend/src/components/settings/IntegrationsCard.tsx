@@ -127,8 +127,9 @@ function MonobankSection() {
   }
 
   const isConfigured = status?.is_configured ?? false;
-  const isSyncing = syncMono.isPending;
+  const isSyncing = Boolean(status?.is_syncing) || syncMono.isPending;
   const isSaving = setMono.isPending;
+  const displayResult = lastResult || status?.last_sync_result;
 
   return (
     <div className="border-b border-gridline pb-4 last:border-0 last:pb-0">
@@ -209,17 +210,10 @@ function MonobankSection() {
       )}
 
       {/* Sync result */}
-      {lastResult && (
+      {displayResult && (
         <div className="mt-2">
-          <SyncResultBanner result={lastResult} />
+          <SyncResultBanner result={displayResult} />
         </div>
-      )}
-
-      {/* Monobank note about sync duration */}
-      {isSyncing && (
-        <p className="mt-2 text-xs text-text-muted">
-          {t("settings.integrations.monobank.syncNote")}
-        </p>
       )}
 
       {/* Credential form */}
@@ -316,8 +310,9 @@ function BybitSection() {
   }
 
   const isConfigured = status?.is_configured ?? false;
-  const isSyncing = syncBybit.isPending;
+  const isSyncing = Boolean(status?.is_syncing) || syncBybit.isPending;
   const isSaving = setBybit.isPending;
+  const displayResult = lastResult || status?.last_sync_result;
 
   return (
     <div className="pb-4 last:pb-0">
@@ -373,9 +368,9 @@ function BybitSection() {
       </div>
 
       {/* Sync result */}
-      {lastResult && (
+      {displayResult && (
         <div className="mt-2">
-          <SyncResultBanner result={lastResult} />
+          <SyncResultBanner result={displayResult} />
         </div>
       )}
 

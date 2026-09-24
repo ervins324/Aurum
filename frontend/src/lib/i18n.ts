@@ -297,6 +297,7 @@ const ru = {
   "transactions.form.typeTransfer": "Перевод",
   "transactions.form.amountLabel": "Сумма",
   "transactions.form.dateLabel": "Дата",
+  "transactions.form.timeLabel": "Время",
   "transactions.form.descriptionLabel": "Описание",
   "transactions.form.descriptionPlaceholder": "Продукты, зарплата, аренда…",
   "transactions.form.accountLabel": "Счёт",
@@ -405,6 +406,8 @@ const ru = {
     "Получите на api.monobank.ua → Персональный токен.",
   "settings.integrations.monobank.syncNote":
     "Между каждым 30-дневным блоком ожидание 61 сек. (лимит Monobank).",
+  "settings.integrations.syncingBackground":
+    "Синхронизация выполняется в фоновом режиме на сервере. Вы можете переходить между вкладками или закрыть страницу.",
   "settings.integrations.monobank.syncFrom": "Синхронизировать с",
   "settings.integrations.monobank.syncTo": "по",
   "settings.integrations.bybit.keyLabel": "API-ключ",
@@ -866,6 +869,7 @@ const en: Record<keyof typeof ru, string> = {
   "transactions.form.typeTransfer": "Transfer",
   "transactions.form.amountLabel": "Amount",
   "transactions.form.dateLabel": "Date",
+  "transactions.form.timeLabel": "Time",
   "transactions.form.descriptionLabel": "Description",
   "transactions.form.descriptionPlaceholder": "Groceries, salary, rent…",
   "transactions.form.accountLabel": "Account",
@@ -974,6 +978,8 @@ const en: Record<keyof typeof ru, string> = {
     "Get it at api.monobank.ua → Personal token.",
   "settings.integrations.monobank.syncNote":
     "Monobank requires a 61-second pause between each 30-day chunk.",
+  "settings.integrations.syncingBackground":
+    "Sync is running in the background on the server. You can safely switch tabs or close the page.",
   "settings.integrations.monobank.syncFrom": "Sync from",
   "settings.integrations.monobank.syncTo": "to",
   "settings.integrations.bybit.keyLabel": "API key",

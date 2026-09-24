@@ -56,6 +56,10 @@ _MONO_CHUNK_SECS = 2_592_000  # 30 days exactly
 # Bybit API constants
 _BYBIT_BASE = "https://api.bybit.com"
 
+# Active background sync tasks & last results by provider
+_ACTIVE_SYNC_TASKS: dict[str, asyncio.Task] = {}
+_LAST_SYNC_RESULTS: dict[str, IntegrationSyncResult] = {}
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -64,14 +68,20 @@ _BYBIT_BASE = "https://api.bybit.com"
 
 def _to_read(integration: Integration | None, provider: str) -> IntegrationRead:
     """Build the safe (masked) read schema from an ORM row (or None = unconfigured)."""
+    task = _ACTIVE_SYNC_TASKS.get(provider)
+    is_syncing = task is not None and not task.done()
+    last_res = _LAST_SYNC_RESULTS.get(provider)
+
     if integration is None:
         return IntegrationRead(
             provider=provider,
             is_configured=False,
+            is_syncing=is_syncing,
             token_preview=None,
             key_preview=None,
             account_id=None,
             last_synced_at=None,
+            last_sync_result=last_res,
         )
     # Determine masked previews from encrypted blobs
     token_preview: str | None = None
@@ -90,10 +100,12 @@ def _to_read(integration: Integration | None, provider: str) -> IntegrationRead:
     return IntegrationRead(
         provider=provider,
         is_configured=True,
+        is_syncing=is_syncing,
         token_preview=token_preview,
         key_preview=key_preview,
         account_id=integration.account_id,
         last_synced_at=integration.last_synced_at,
+        last_sync_result=last_res,
     )
 
 
@@ -153,6 +165,71 @@ async def delete_integration(session: AsyncSession, provider: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Background sync orchestration
+# ---------------------------------------------------------------------------
+
+
+async def start_background_sync(
+    provider: str,
+    sync_from: date_ | None = None,
+    sync_to: date_ | None = None,
+) -> IntegrationSyncResult:
+    """Start an integration sync as a detached background task.
+
+    If a sync is already running for the provider, returns a result indicating
+    that sync is in progress. Otherwise, launches an asyncio task that operates
+    on its own database session and returns an immediate response.
+    """
+    task = _ACTIVE_SYNC_TASKS.get(provider)
+    if task is not None and not task.done():
+        logger.info("[Sync] Sync already running in background for '%s'; ignoring duplicate trigger", provider)
+        return IntegrationSyncResult(
+            provider=provider,
+            synced_count=0,
+            skipped_count=0,
+            error="Sync already in progress",
+        )
+
+    from app.db.session import AsyncSessionLocal
+
+    async def _worker() -> None:
+        logger.info("[Background Sync] Detached background task started for '%s'", provider)
+        async with AsyncSessionLocal() as session:
+            try:
+                if provider == "monobank":
+                    result = await sync_monobank(session, sync_from=sync_from, sync_to=sync_to)
+                elif provider == "bybit":
+                    result = await sync_bybit(session)
+                else:
+                    result = IntegrationSyncResult(
+                        provider=provider, synced_count=0, skipped_count=0, error="Unknown provider"
+                    )
+                _LAST_SYNC_RESULTS[provider] = result
+                logger.info(
+                    "[Background Sync] Finished for '%s': %d synced, %d skipped, error=%s",
+                    provider,
+                    result.synced_count,
+                    result.skipped_count,
+                    result.error,
+                )
+            except Exception as exc:
+                logger.error("[Background Sync] Uncaught error during '%s' sync: %s", provider, exc, exc_info=True)
+                _LAST_SYNC_RESULTS[provider] = IntegrationSyncResult(
+                    provider=provider,
+                    synced_count=0,
+                    skipped_count=0,
+                    error=str(exc),
+                )
+            finally:
+                _ACTIVE_SYNC_TASKS.pop(provider, None)
+
+    task = asyncio.create_task(_worker())
+    _ACTIVE_SYNC_TASKS[provider] = task
+    logger.info("[Sync] Dispatched background task for '%s'", provider)
+    return IntegrationSyncResult(provider=provider, synced_count=0, skipped_count=0, error=None)
+
+
+# ---------------------------------------------------------------------------
 # Monobank sync
 # ---------------------------------------------------------------------------
 
@@ -169,20 +246,23 @@ async def sync_monobank(
       sync_to   — latest date to fetch (defaults to today).
 
     Rate limit: Monobank allows 1 statement request per 60 seconds per token.
-    We sleep 61 seconds between chunks.  A full history import spanning years
-    takes many minutes — this is expected and clearly documented.
+    We sleep 61 seconds between chunks. Each chunk is committed immediately so
+    progress is preserved even if stopped mid-sync.
     """
-    from app.services.mcc_service import resolve_category_id_by_mcc
+    from app.services.mcc_service import resolve_category_id_by_mcc, resolve_fallback_other_category
 
     integration = await _get_integration(session, "monobank")
     if integration is None or not integration.token_enc:
+        logger.warning("[Monobank Sync] Attempted sync but Monobank is not configured")
         return IntegrationSyncResult(provider="monobank", synced_count=0, skipped_count=0, error="Not configured")
     if integration.account_id is None:
+        logger.warning("[Monobank Sync] Attempted sync but no Aurum account is linked")
         return IntegrationSyncResult(provider="monobank", synced_count=0, skipped_count=0, error="No account linked")
 
     try:
         token = decrypt(integration.token_enc)
     except Exception as exc:
+        logger.error("[Monobank Sync] Failed to decrypt token: %s", exc)
         return IntegrationSyncResult(provider="monobank", synced_count=0, skipped_count=0, error=str(exc))
 
     headers = {"X-Token": token}
@@ -192,9 +272,13 @@ async def sync_monobank(
     effective_from = sync_from or _MONO_EPOCH
     effective_to = sync_to or date_.today()
 
-    # In Monobank Open API, account "0" is the client's primary active card.
-    # Calling /personal/statement/0/... directly avoids burning the 1 req/60s quota
-    # on /personal/client-info, preventing an immediate HTTP 429 rate limit error.
+    logger.info(
+        "[Monobank Sync] Starting sync for account_id=%s. Period: %s to %s",
+        account_id,
+        effective_from,
+        effective_to,
+    )
+
     mono_account_ids: list[str] = ["0"]
 
     synced = 0
@@ -203,18 +287,30 @@ async def sync_monobank(
     start_ts = int(datetime(effective_from.year, effective_from.month, effective_from.day, tzinfo=timezone.utc).timestamp())
 
     for mono_acc_id in mono_account_ids:
-        # Walk backwards from effective_to to effective_from in 30-day chunks
         chunk_end_ts = end_ts
         first_request = True
+        chunk_idx = 0
 
         while chunk_end_ts > start_ts:
             chunk_start_ts = max(chunk_end_ts - _MONO_CHUNK_SECS, start_ts)
+            chunk_idx += 1
+
+            chunk_start_str = datetime.fromtimestamp(chunk_start_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            chunk_end_str = datetime.fromtimestamp(chunk_end_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
             # Mono rate limit: 1 req / 60 s — sleep between all but first call
             if not first_request:
-                logger.info("Monobank rate-limit sleep 61s…")
+                logger.info("[Monobank Sync] Rate limit: sleeping 61s before fetching next chunk…")
                 await asyncio.sleep(61)
             first_request = False
+
+            logger.info(
+                "[Monobank Sync] Chunk #%d: requesting statement [%s -> %s] for card '%s'",
+                chunk_idx,
+                chunk_start_str,
+                chunk_end_str,
+                mono_acc_id,
+            )
 
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
@@ -223,15 +319,22 @@ async def sync_monobank(
                         headers=headers,
                     )
                     if resp.status_code == 429:
-                        # Unexpected 429 — wait longer
-                        logger.warning("Monobank 429 — sleeping extra 120s")
+                        logger.warning("[Monobank Sync] 429 Too Many Requests received from Monobank — waiting 120s")
                         await asyncio.sleep(120)
                         continue
                     resp.raise_for_status()
                     items = resp.json()
             except Exception as exc:
-                logger.error("Monobank statement fetch failed for %s: %s", mono_acc_id, exc)
+                logger.error(
+                    "[Monobank Sync] Statement fetch failed for card '%s' [%s -> %s]: %s",
+                    mono_acc_id,
+                    chunk_start_str,
+                    chunk_end_str,
+                    exc,
+                )
                 break
+
+            logger.info("[Monobank Sync] API returned %d items for chunk #%d", len(items), chunk_idx)
 
             # Batch deduplication: one query per chunk instead of one per transaction.
             ext_ids_in_chunk = [f"mono_{item['id']}" for item in items]
@@ -245,9 +348,13 @@ async def sync_monobank(
             else:
                 already_synced = set()
 
+            chunk_synced = 0
+            chunk_skipped = 0
+
             for item in items:
                 ext_id = f"mono_{item['id']}"
                 if ext_id in already_synced:
+                    chunk_skipped += 1
                     skipped += 1
                     continue
 
@@ -264,9 +371,11 @@ async def sync_monobank(
                 tx_date = tx_timestamp.date()
                 description = item.get("description") or "Monobank transaction"
 
-                # Auto-categorise by MCC code
+                # Auto-categorise by MCC code; fall back to "Other" category if none matched
                 mcc = item.get("mcc")
                 category_id = await resolve_category_id_by_mcc(session, mcc, tx_type)
+                if category_id is None:
+                    category_id = await resolve_fallback_other_category(session, tx_type)
 
                 tx = Transaction(
                     account_id=account_id,
@@ -280,17 +389,32 @@ async def sync_monobank(
                     notes=f"MCC: {item.get('mcc', '')}" if item.get("mcc") else None,
                 )
                 session.add(tx)
+                chunk_synced += 1
                 synced += 1
+
+            # Commit after each chunk so progress is immediately saved in the DB
+            await session.commit()
+            logger.info(
+                "[Monobank Sync] Chunk #%d committed: %d new added, %d skipped duplicates. Total progress: %d synced, %d skipped",
+                chunk_idx,
+                chunk_synced,
+                chunk_skipped,
+                synced,
+                skipped,
+            )
 
             # Move window back
             chunk_end_ts = chunk_start_ts - 1
 
-        # Flush after each Monobank account to avoid giant pending sets
-        await session.flush()
-
     integration.last_synced_at = datetime.now(tz=timezone.utc)
     await session.commit()
-    logger.info("Monobank sync complete: %d synced, %d skipped", synced, skipped)
+    logger.info(
+        "[Monobank Sync] Completed successfully for %s -> %s: %d total synced, %d total skipped",
+        effective_from,
+        effective_to,
+        synced,
+        skipped,
+    )
     return IntegrationSyncResult(provider="monobank", synced_count=synced, skipped_count=skipped)
 
 
@@ -484,6 +608,8 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
                 merchant = item.get("merchantName") or None
                 description = merchant or f"Bybit Card {transaction_currency}"
 
+                category_id = await resolve_fallback_other_category(session, tx_type)
+
                 tx = Transaction(
                     account_id=account_id,
                     type=tx_type,
@@ -493,12 +619,14 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
                     date=tx_date,
                     transaction_time=tx_timestamp,
                     external_id=ext_id,
+                    category_id=category_id,
                     notes=notes,
                 )
                 session.add(tx)
                 synced += 1
 
-            await session.flush()
+            await session.commit()
+            logger.info("[Bybit Sync] Page committed: %d synced, %d skipped so far", synced, skipped)
 
             # Stop pagination when no more pages
             if not next_cursor or next_cursor == cursor or len(records) == 0:
@@ -507,7 +635,7 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
 
     integration.last_synced_at = datetime.now(tz=timezone.utc)
     await session.commit()
-    logger.info("Bybit sync complete: %d synced, %d skipped", synced, skipped)
+    logger.info("[Bybit Sync] Finished: %d synced, %d skipped, errors=%s", synced, skipped, errors)
     return IntegrationSyncResult(
         provider="bybit",
         synced_count=synced,

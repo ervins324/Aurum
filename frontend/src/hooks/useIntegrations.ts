@@ -11,7 +11,14 @@ import type { BybitIntegrationInput, MonobankIntegrationInput, MonobankSyncReque
 const QUERY_KEY = ["integrations"];
 
 export function useIntegrations() {
-  return useQuery({ queryKey: QUERY_KEY, queryFn: fetchIntegrations });
+  return useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: fetchIntegrations,
+    refetchInterval: (query) => {
+      const isAnySyncing = query.state.data?.some((i) => i.is_syncing);
+      return isAnySyncing ? 2000 : false;
+    },
+  });
 }
 
 export function useSetMonobankIntegration() {

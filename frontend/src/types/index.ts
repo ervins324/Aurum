@@ -117,6 +117,7 @@ export interface TransactionInput {
   merchant?: string | null;
   notes?: string | null;
   date: string;
+  transaction_time?: string | null;
   // Omitted -> tags untouched on update; sent (even as []) -> replaces the
   // full tag set. Always sent on create (defaults to []).
   tag_ids?: number[];
@@ -583,6 +584,8 @@ export interface IntegrationStatus {
   key_preview: string | null;
   account_id: number | null;
   last_synced_at: string | null;
+  is_syncing?: boolean;
+  last_sync_result?: IntegrationSyncResult | null;
 }
 
 export interface MonobankIntegrationInput {
