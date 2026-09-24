@@ -271,6 +271,23 @@ async def resolve_or_create_money_transfers_category(
     return new_cat.id
 
 
+async def get_money_transfer_category_ids(session: AsyncSession) -> set[int]:
+    """Return all category IDs representing Money Transfers (including subcategories).
+
+    Used when excluding money transfers / wire operations from cash flow, dashboard
+    summaries, or reports to avoid skewing income and living expenses with neutral
+    account-funding operations.
+    """
+    candidate_names = {"money transfers", "transfers", "wire transfers", "денежные переводы", "переводы"}
+    result = await session.execute(select(Category.id, Category.parent_id, Category.name))
+    all_cats = result.all()
+    transfer_ids = {
+        row[0] for row in all_cats if row[2] and row[2].strip().lower() in candidate_names
+    }
+    child_ids = {row[0] for row in all_cats if row[1] in transfer_ids}
+    return transfer_ids | child_ids
+
+
 async def resolve_fallback_other_category(
     session: AsyncSession,
     tx_type: TransactionType,

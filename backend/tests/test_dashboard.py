@@ -100,13 +100,13 @@ async def test_subcategory_spending_rolls_up_into_its_parent(client: AsyncClient
 
 async def test_more_than_eight_expense_categories_roll_up_into_other(client: AsyncClient, account_id, categories):
     expense_categories = [c for c in categories.values() if c["kind"] == "expense"]
-    # The default seed only ships 8 expense categories (see app/db/seed.py) —
-    # add a 9th ourselves rather than depending on that number ever changing.
+    initial_count = len(expense_categories)
     extra = await client.post(
         "/categories", json={"name": "Extra Expense", "kind": "expense", "color": "#123456", "sort_order": 99}
     )
     expense_categories.append(extra.json())
-    assert len(expense_categories) == 9
+    assert len(expense_categories) == initial_count + 1
+    assert len(expense_categories) >= 9
 
     # Distinct amounts so we can tell which ones survive as their own slice.
     for index, category in enumerate(expense_categories[:9]):
@@ -182,3 +182,38 @@ async def test_a_single_category_slice_has_no_children_breakdown(client: AsyncCl
     breakdown = {row["name"]: row for row in resp.json()["spending_by_category"]}
 
     assert breakdown["Groceries"]["children"] == []
+
+
+async def test_dashboard_exclude_transfers(client: AsyncClient, account_id, categories):
+    salary_id = categories["Salary"]["id"]
+    groceries_id = categories["Groceries"]["id"]
+    cats_list = (await client.get("/categories")).json()
+    money_transfers_id = next(c["id"] for c in cats_list if c["name"] == "Money Transfers" and c["kind"] == "expense")
+
+    r1 = await client.post(
+        "/transactions", json=_txn(account_id, type="income", amount="2000.00", category_id=salary_id, date="2026-08-01")
+    )
+    assert r1.status_code == 201
+    r2 = await client.post(
+        "/transactions", json=_txn(account_id, type="expense", amount="300.00", category_id=groceries_id, date="2026-08-05")
+    )
+    assert r2.status_code == 201
+    r3 = await client.post(
+        "/transactions", json=_txn(account_id, type="expense", amount="1000.00", category_id=money_transfers_id, date="2026-08-10")
+    )
+    assert r3.status_code == 201
+
+    # Default (exclude_transfers=False)
+    resp = await client.get("/dashboard/summary", params={"year": 2026, "month": 8})
+    body = resp.json()
+    assert money(body["real_income"]) == Decimal("2000.00")
+    assert money(body["spent"]) == Decimal("1300.00")
+    assert any(row["name"] == "Money Transfers" for row in body["spending_by_category"])
+
+    # With exclude_transfers=True
+    resp_ex = await client.get("/dashboard/summary", params={"year": 2026, "month": 8, "exclude_transfers": "true"})
+    body_ex = resp_ex.json()
+    assert money(body_ex["real_income"]) == Decimal("2000.00")
+    assert money(body_ex["spent"]) == Decimal("300.00")
+    assert money(body_ex["net"]) == Decimal("1700.00")
+    assert not any(row["name"] == "Money Transfers" for row in body_ex["spending_by_category"])

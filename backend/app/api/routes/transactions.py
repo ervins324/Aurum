@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import String, Time, cast, func, or_, select
+from sqlalchemy import and_, String, Time, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +25,7 @@ from app.schemas.transaction import (
     split_rule_violation,
     transfer_rule_violation,
 )
+from app.services.mcc_service import get_money_transfer_category_ids
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -113,6 +114,7 @@ async def list_transactions(
     category_id: int | None = None,
     tag_id: int | None = None,
     type: TransactionType | None = None,
+    exclude_transfers: bool = Query(default=False),
     search: str | None = Query(default=None, min_length=1, max_length=255),
     sort: Literal["date_desc", "date_asc", "amount_desc", "amount_asc"] = Query(default="date_desc"),
     page: int = Query(default=1, ge=1),
@@ -121,6 +123,16 @@ async def list_transactions(
 ) -> TransactionPage:
     stmt = select(Transaction).options(*_EAGER)
     count_stmt = select(func.count()).select_from(Transaction)
+
+    if exclude_transfers:
+        transfer_cat_ids = await get_money_transfer_category_ids(session)
+        if transfer_cat_ids:
+            transfer_filter = and_(
+                or_(Transaction.category_id.is_(None), Transaction.category_id.not_in(transfer_cat_ids)),
+                ~Transaction.splits.any(TransactionSplit.category_id.in_(transfer_cat_ids)),
+            )
+            stmt = stmt.where(transfer_filter)
+            count_stmt = count_stmt.where(transfer_filter)
 
     if year is not None:
         stmt = stmt.where(func.extract("year", Transaction.date) == year)

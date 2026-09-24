@@ -7,12 +7,13 @@ from collections import defaultdict
 from datetime import date as date_
 from decimal import Decimal
 
-from sqlalchemy import extract, func, select
+from sqlalchemy import extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import TransactionType
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, TransactionSplit
 from app.schemas.cash_flow import CashFlowPoint, CashFlowResponse
+from app.services.mcc_service import get_money_transfer_category_ids
 
 
 def _next_month(year: int, month: int) -> tuple[int, int]:
@@ -20,11 +21,23 @@ def _next_month(year: int, month: int) -> tuple[int, int]:
 
 
 async def get_cash_flow(
-    session: AsyncSession, start_date: date_ | None, end_date: date_ | None
+    session: AsyncSession,
+    start_date: date_ | None,
+    end_date: date_ | None,
+    exclude_transfers: bool = False,
 ) -> CashFlowResponse:
+    transfer_cat_ids = await get_money_transfer_category_ids(session) if exclude_transfers else set()
+
     bounds_stmt = select(func.min(Transaction.date), func.max(Transaction.date)).where(
         Transaction.type != TransactionType.TRANSFER
     )
+    if exclude_transfers and transfer_cat_ids:
+        bounds_stmt = bounds_stmt.where(
+            or_(
+                Transaction.category_id.is_(None),
+                Transaction.category_id.not_in(transfer_cat_ids),
+            )
+        )
     if start_date:
         bounds_stmt = bounds_stmt.where(Transaction.date >= start_date)
     if end_date:
@@ -45,25 +58,79 @@ async def get_cash_flow(
     if effective_start is None or effective_end is None:
         return empty
 
-    rows_stmt = (
-        select(
-            extract("year", Transaction.date).label("year"),
-            extract("month", Transaction.date).label("month"),
-            Transaction.type,
-            func.sum(Transaction.amount).label("amount"),
-        )
-        .where(
-            Transaction.type != TransactionType.TRANSFER,
-            Transaction.date >= effective_start,
-            Transaction.date <= effective_end,
-        )
-        .group_by("year", "month", Transaction.type)
-    )
-    rows = (await session.execute(rows_stmt)).all()
-
     by_month: dict[tuple[int, int], dict[TransactionType, Decimal]] = defaultdict(dict)
-    for year, month, tx_type, amount in rows:
-        by_month[(int(year), int(month))][tx_type] = amount
+
+    if not exclude_transfers or not transfer_cat_ids:
+        rows_stmt = (
+            select(
+                extract("year", Transaction.date).label("year"),
+                extract("month", Transaction.date).label("month"),
+                Transaction.type,
+                func.sum(Transaction.amount).label("amount"),
+            )
+            .where(
+                Transaction.type != TransactionType.TRANSFER,
+                Transaction.date >= effective_start,
+                Transaction.date <= effective_end,
+            )
+            .group_by("year", "month", Transaction.type)
+        )
+        rows = (await session.execute(rows_stmt)).all()
+        for year, month, tx_type, amount in rows:
+            by_month[(int(year), int(month))][tx_type] = amount
+    else:
+        # Split transactions subquery: transaction IDs that have split lines
+        split_ids_stmt = select(TransactionSplit.transaction_id).distinct()
+
+        # 1. Plain transactions (not split), excluding money transfer categories
+        plain_stmt = (
+            select(
+                extract("year", Transaction.date).label("year"),
+                extract("month", Transaction.date).label("month"),
+                Transaction.type,
+                func.sum(Transaction.amount).label("amount"),
+            )
+            .where(
+                Transaction.type != TransactionType.TRANSFER,
+                Transaction.date >= effective_start,
+                Transaction.date <= effective_end,
+                Transaction.id.not_in(split_ids_stmt),
+                or_(
+                    Transaction.category_id.is_(None),
+                    Transaction.category_id.not_in(transfer_cat_ids),
+                ),
+            )
+            .group_by("year", "month", Transaction.type)
+        )
+        for year, month, tx_type, amount in (await session.execute(plain_stmt)).all():
+            by_month[(int(year), int(month))][tx_type] = (
+                by_month[(int(year), int(month))].get(tx_type, Decimal("0")) + amount
+            )
+
+        # 2. Split lines, excluding money transfer categories
+        split_stmt = (
+            select(
+                extract("year", Transaction.date).label("year"),
+                extract("month", Transaction.date).label("month"),
+                Transaction.type,
+                func.sum(TransactionSplit.amount).label("amount"),
+            )
+            .join(Transaction, Transaction.id == TransactionSplit.transaction_id)
+            .where(
+                Transaction.type != TransactionType.TRANSFER,
+                Transaction.date >= effective_start,
+                Transaction.date <= effective_end,
+                or_(
+                    TransactionSplit.category_id.is_(None),
+                    TransactionSplit.category_id.not_in(transfer_cat_ids),
+                ),
+            )
+            .group_by("year", "month", Transaction.type)
+        )
+        for year, month, tx_type, amount in (await session.execute(split_stmt)).all():
+            by_month[(int(year), int(month))][tx_type] = (
+                by_month[(int(year), int(month))].get(tx_type, Decimal("0")) + amount
+            )
 
     points: list[CashFlowPoint] = []
     year, month = effective_start.year, effective_start.month

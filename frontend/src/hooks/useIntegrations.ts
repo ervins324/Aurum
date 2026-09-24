@@ -16,7 +16,7 @@ export function useIntegrations() {
     queryFn: fetchIntegrations,
     refetchInterval: (query) => {
       const isAnySyncing = query.state.data?.some((i) => i.is_syncing);
-      return isAnySyncing ? 2000 : false;
+      return isAnySyncing ? 1000 : false;
     },
   });
 }

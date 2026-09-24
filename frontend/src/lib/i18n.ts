@@ -569,6 +569,11 @@ const ru = {
   "settings.integrations.newAccountNamePlaceholder": "Monobank, Bybit Card…",
   "settings.integrations.createAccountButton": "Создать",
 
+  "cashFlow.excludeTransfers": "Исключить переводы",
+  "cashFlow.excludeTransfersHint": "Не учитывать денежные переводы в доходах и расходах",
+  "dashboard.excludeTransfers": "Без переводов",
+  "reports.excludeTransfers": "Исключить переводы",
+
   "months.jan": "Янв",
   "months.feb": "Фев",
   "months.mar": "Мар",
@@ -1143,6 +1148,11 @@ const en: Record<keyof typeof ru, string> = {
   "settings.integrations.newAccountType": "Account type",
   "settings.integrations.newAccountNamePlaceholder": "Monobank, Bybit Card…",
   "settings.integrations.createAccountButton": "Create",
+
+  "cashFlow.excludeTransfers": "Exclude transfers",
+  "cashFlow.excludeTransfersHint": "Exclude money transfers from income and expenses",
+  "dashboard.excludeTransfers": "Exclude transfers",
+  "reports.excludeTransfers": "Exclude transfers",
 
   "months.jan": "Jan",
   "months.feb": "Feb",

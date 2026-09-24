@@ -59,6 +59,14 @@ _BYBIT_BASE = "https://api.bybit.com"
 # Active background sync tasks & last results by provider
 _ACTIVE_SYNC_TASKS: dict[str, asyncio.Task] = {}
 _LAST_SYNC_RESULTS: dict[str, IntegrationSyncResult] = {}
+# Live one-line progress message per provider, set during background sync.
+# Cleared when the task finishes so the UI reverts to showing the final result.
+_SYNC_STATUS: dict[str, str] = {}
+
+
+def _set_sync_status(provider: str, message: str) -> None:
+    """Update the live progress message visible on the next GET /integrations poll."""
+    _SYNC_STATUS[provider] = message
 
 
 # ---------------------------------------------------------------------------
@@ -71,12 +79,15 @@ def _to_read(integration: Integration | None, provider: str) -> IntegrationRead:
     task = _ACTIVE_SYNC_TASKS.get(provider)
     is_syncing = task is not None and not task.done()
     last_res = _LAST_SYNC_RESULTS.get(provider)
+    # Only surface live status while sync is actually running
+    sync_status = _SYNC_STATUS.get(provider) if is_syncing else None
 
     if integration is None:
         return IntegrationRead(
             provider=provider,
             is_configured=False,
             is_syncing=is_syncing,
+            sync_status=sync_status,
             token_preview=None,
             key_preview=None,
             account_id=None,
@@ -101,6 +112,7 @@ def _to_read(integration: Integration | None, provider: str) -> IntegrationRead:
         provider=provider,
         is_configured=True,
         is_syncing=is_syncing,
+        sync_status=sync_status,
         token_preview=token_preview,
         key_preview=key_preview,
         account_id=integration.account_id,
@@ -222,6 +234,8 @@ async def start_background_sync(
                 )
             finally:
                 _ACTIVE_SYNC_TASKS.pop(provider, None)
+                # Clear live status so the UI reverts to showing the final result
+                _SYNC_STATUS.pop(provider, None)
 
     task = asyncio.create_task(_worker())
     _ACTIVE_SYNC_TASKS[provider] = task
@@ -278,6 +292,7 @@ async def sync_monobank(
         effective_from,
         effective_to,
     )
+    _set_sync_status("monobank", f"Connecting… ({effective_from} → {effective_to})")
 
     mono_account_ids: list[str] = ["0"]
 
@@ -295,13 +310,19 @@ async def sync_monobank(
             chunk_start_ts = max(chunk_end_ts - _MONO_CHUNK_SECS, start_ts)
             chunk_idx += 1
 
-            chunk_start_str = datetime.fromtimestamp(chunk_start_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            chunk_end_str = datetime.fromtimestamp(chunk_end_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            chunk_start_str = datetime.fromtimestamp(chunk_start_ts, tz=timezone.utc).strftime("%Y-%m-%d")
+            chunk_end_str = datetime.fromtimestamp(chunk_end_ts, tz=timezone.utc).strftime("%Y-%m-%d")
 
             # Mono rate limit: 1 req / 60 s — sleep between all but first call
             if not first_request:
                 logger.info("[Monobank Sync] Rate limit: sleeping 61s before fetching next chunk…")
-                await asyncio.sleep(61)
+                # Count down 61 seconds so the UI shows the remaining wait time
+                for remaining in range(61, 0, -1):
+                    _set_sync_status(
+                        "monobank",
+                        f"Rate limit — waiting {remaining}s before chunk #{chunk_idx} ({chunk_start_str} → {chunk_end_str})…"
+                    )
+                    await asyncio.sleep(1)
             first_request = False
 
             logger.info(
@@ -310,6 +331,10 @@ async def sync_monobank(
                 chunk_start_str,
                 chunk_end_str,
                 mono_acc_id,
+            )
+            _set_sync_status(
+                "monobank",
+                f"Fetching chunk #{chunk_idx}: {chunk_start_str} → {chunk_end_str}…"
             )
 
             try:
@@ -320,7 +345,12 @@ async def sync_monobank(
                     )
                     if resp.status_code == 429:
                         logger.warning("[Monobank Sync] 429 Too Many Requests received from Monobank — waiting 120s")
-                        await asyncio.sleep(120)
+                        for remaining in range(120, 0, -1):
+                            _set_sync_status(
+                                "monobank",
+                                f"Rate limit (429) — waiting {remaining}s…"
+                            )
+                            await asyncio.sleep(1)
                         continue
                     resp.raise_for_status()
                     items = resp.json()
@@ -332,9 +362,14 @@ async def sync_monobank(
                     chunk_end_str,
                     exc,
                 )
+                _set_sync_status("monobank", f"Error fetching chunk #{chunk_idx}: {exc}")
                 break
 
             logger.info("[Monobank Sync] API returned %d items for chunk #%d", len(items), chunk_idx)
+            _set_sync_status(
+                "monobank",
+                f"Processing chunk #{chunk_idx}: {len(items)} transactions ({synced} saved so far)…"
+            )
 
             # Batch deduplication: one query per chunk instead of one per transaction.
             ext_ids_in_chunk = [f"mono_{item['id']}" for item in items]
@@ -393,6 +428,10 @@ async def sync_monobank(
                 synced += 1
 
             # Commit after each chunk so progress is immediately saved in the DB
+            _set_sync_status(
+                "monobank",
+                f"Saving chunk #{chunk_idx}: {chunk_synced} new, {chunk_skipped} duplicates (total: {synced} saved)…"
+            )
             await session.commit()
             logger.info(
                 "[Monobank Sync] Chunk #%d committed: %d new added, %d skipped duplicates. Total progress: %d synced, %d skipped",
@@ -406,6 +445,7 @@ async def sync_monobank(
             # Move window back
             chunk_end_ts = chunk_start_ts - 1
 
+    _set_sync_status("monobank", f"Finalising… {synced} transactions saved.")
     integration.last_synced_at = datetime.now(tz=timezone.utc)
     await session.commit()
     logger.info(
@@ -461,9 +501,18 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
     # SIDE_QUERY_FINANCIAL_ALL retrieves all clearing/settlement transactions.
     query_types = ["SIDE_QUERY_AUTH_ALL", "SIDE_QUERY_FINANCIAL_ALL"]
 
+    synced = 0
+    skipped = 0
+    errors: list[str] = []
+    _set_sync_status("bybit", "Connecting to Bybit Card API…")
+
     for q_type in query_types:
+        q_label = "authorization" if "AUTH" in q_type else "settlement"
         cursor: str | None = None
+        page_num = 0
         while True:
+            page_num += 1
+            _set_sync_status("bybit", f"Fetching {q_label} transactions (page {page_num})…")
             ts = int(time.time() * 1000)
             body_dict: dict = {"type": q_type}
             if cursor:
@@ -517,7 +566,9 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
             # Retryable rate-limit codes
             if ret_code in (10006, 10014) or last_http_status == 429:
                 logger.warning("Bybit rate limit hit — sleeping 5s")
-                await asyncio.sleep(5)
+                for remaining in range(5, 0, -1):
+                    _set_sync_status("bybit", f"Rate limit — waiting {remaining}s…")
+                    await asyncio.sleep(1)
                 continue
             if ret_code != 0:
                 errors.append(f"Bybit API error retCode={ret_code}: {data.get('retMsg')}")
@@ -525,6 +576,7 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
 
             records = (data.get("result") or {}).get("list", [])
             next_cursor = (data.get("result") or {}).get("nextPageCursor", "")
+            _set_sync_status("bybit", f"Processing {len(records)} records ({synced} saved so far)…")
 
             for item in records:
                 item_id = item.get("id") or item.get("txnId") or item.get("orderNo")
@@ -626,6 +678,7 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
                 synced += 1
 
             await session.commit()
+            _set_sync_status("bybit", f"Page saved: {synced} synced, {skipped} skipped so far…")
             logger.info("[Bybit Sync] Page committed: %d synced, %d skipped so far", synced, skipped)
 
             # Stop pagination when no more pages
@@ -633,6 +686,7 @@ async def sync_bybit(session: AsyncSession) -> IntegrationSyncResult:
                 break
             cursor = next_cursor
 
+    _set_sync_status("bybit", f"Finalising… {synced} transactions saved.")
     integration.last_synced_at = datetime.now(tz=timezone.utc)
     await session.commit()
     logger.info("[Bybit Sync] Finished: %d synced, %d skipped, errors=%s", synced, skipped, errors)

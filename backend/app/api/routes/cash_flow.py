@@ -14,6 +14,7 @@ router = APIRouter(prefix="/cash-flow", tags=["cash-flow"])
 async def read_cash_flow(
     start_date: date_ | None = Query(default=None),
     end_date: date_ | None = Query(default=None),
+    exclude_transfers: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
 ) -> CashFlowResponse:
-    return await get_cash_flow(session, start_date, end_date)
+    return await get_cash_flow(session, start_date, end_date, exclude_transfers)

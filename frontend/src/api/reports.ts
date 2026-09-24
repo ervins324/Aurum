@@ -8,9 +8,10 @@ export function fetchCategorySpendingReport(categoryId: number, startDate?: stri
   return api.get<CategorySpendingReport>(`/reports/category-spending?${params.toString()}`);
 }
 
-export function fetchCategoryRanking(kind: CategoryKind, startDate?: string, endDate?: string) {
+export function fetchCategoryRanking(kind: CategoryKind, startDate?: string, endDate?: string, excludeTransfers?: boolean) {
   const params = new URLSearchParams({ kind });
   if (startDate) params.set("start_date", startDate);
   if (endDate) params.set("end_date", endDate);
+  if (excludeTransfers) params.set("exclude_transfers", "true");
   return api.get<CategoryRankingReport>(`/reports/category-ranking?${params.toString()}`);
 }

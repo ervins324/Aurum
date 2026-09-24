@@ -99,6 +99,7 @@ async def rollup_spending_by_top_level_category(
     transaction_type: TransactionType,
     start_date: date_ | None = None,
     end_date: date_ | None = None,
+    exclude_category_ids: set[int] | None = None,
 ) -> list[CategoryRollupItem]:
     """Every top-level category's total for the period, sorted by amount
     desc (category sort_order as tiebreak — same order the SQL-only version
@@ -118,8 +119,12 @@ async def rollup_spending_by_top_level_category(
     # filed directly on the parent, and a genuine child id otherwise.
     amount_by_leaf: dict[int, dict[int, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
     for transaction_id, category_id, amount in contributions:
+        if exclude_category_ids and category_id in exclude_category_ids:
+            continue
         category = categories_by_id.get(category_id)
         effective_id = category.parent_id if category and category.parent_id is not None else category_id
+        if exclude_category_ids and effective_id in exclude_category_ids:
+            continue
         amount_by_effective[effective_id] += amount
         amount_by_leaf[effective_id][category_id] += amount
         txn_ids_by_effective[effective_id].add(transaction_id)

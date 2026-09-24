@@ -14,6 +14,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 async def read_dashboard_summary(
     year: int = Query(default_factory=lambda: date.today().year, ge=2000, le=2100),
     month: int = Query(default_factory=lambda: date.today().month, ge=1, le=12),
+    exclude_transfers: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
 ) -> DashboardSummary:
-    return await get_dashboard_summary(session, year, month)
+    return await get_dashboard_summary(session, year, month, exclude_transfers)

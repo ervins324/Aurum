@@ -66,6 +66,16 @@ function SyncResultBanner({ result }: { result: IntegrationSyncResult }) {
   );
 }
 
+function SyncProgressBanner({ statusMessage }: { statusMessage?: string | null }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-sm text-primary font-medium animate-pulse">
+      <RefreshCw size={14} className="animate-spin shrink-0 text-primary" />
+      <span>{statusMessage || t("settings.integrations.syncing")}</span>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // AccountSelector — dropdown with inline "Create new account" option
@@ -335,8 +345,15 @@ function MonobankSection() {
         </div>
       )}
 
+      {/* Live sync stage */}
+      {isSyncing && (
+        <div className="mt-2">
+          <SyncProgressBanner statusMessage={status?.sync_status} />
+        </div>
+      )}
+
       {/* Sync result */}
-      {displayResult && (
+      {!isSyncing && displayResult && (
         <div className="mt-2">
           <SyncResultBanner result={displayResult} />
         </div>
@@ -485,8 +502,15 @@ function BybitSection() {
         </div>
       </div>
 
+      {/* Live sync stage */}
+      {isSyncing && (
+        <div className="mt-2">
+          <SyncProgressBanner statusMessage={status?.sync_status} />
+        </div>
+      )}
+
       {/* Sync result */}
-      {displayResult && (
+      {!isSyncing && displayResult && (
         <div className="mt-2">
           <SyncResultBanner result={displayResult} />
         </div>

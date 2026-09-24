@@ -26,6 +26,7 @@ async def read_category_ranking_report(
     kind: CategoryKind = CategoryKind.EXPENSE,
     start_date: date_ | None = Query(default=None),
     end_date: date_ | None = Query(default=None),
+    exclude_transfers: bool = Query(default=False),
     session: AsyncSession = Depends(get_session),
 ) -> CategoryRankingReport:
-    return await get_category_ranking_report(session, kind, start_date, end_date)
+    return await get_category_ranking_report(session, kind, start_date, end_date, exclude_transfers)

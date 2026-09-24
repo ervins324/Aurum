@@ -120,6 +120,8 @@ async def get_category_spending_report(
     )
 
 
+from app.services.mcc_service import get_money_transfer_category_ids
+
 _KIND_TO_TRANSACTION_TYPE = {
     CategoryKind.EXPENSE: TransactionType.EXPENSE,
     CategoryKind.INCOME: TransactionType.INCOME,
@@ -127,20 +129,23 @@ _KIND_TO_TRANSACTION_TYPE = {
 
 
 async def get_category_ranking_report(
-    session: AsyncSession, kind: CategoryKind, start_date: date_ | None, end_date: date_ | None
+    session: AsyncSession,
+    kind: CategoryKind,
+    start_date: date_ | None,
+    end_date: date_ | None,
+    exclude_transfers: bool = False,
 ) -> CategoryRankingReport:
     """All categories of one kind, ranked by total spent/earned over an
     arbitrary period — "which category costs the most" across the whole
     range, unlike the month-scoped Dashboard breakdown or the
     single-category detail above."""
-    # A transaction's type already restricts it to categories of the
-    # matching kind (enforced at write time by _ensure_category_matches_type
-    # in routes/transactions.py), so filtering by transaction_type below is
-    # enough — no separate kind filter needed, and the shared rollup already
-    # unions plain transactions with split lines the same way the Dashboard
-    # breakdown does.
+    transfer_cat_ids = await get_money_transfer_category_ids(session) if exclude_transfers else None
     rows = await rollup_spending_by_top_level_category(
-        session, transaction_type=_KIND_TO_TRANSACTION_TYPE[kind], start_date=start_date, end_date=end_date
+        session,
+        transaction_type=_KIND_TO_TRANSACTION_TYPE[kind],
+        start_date=start_date,
+        end_date=end_date,
+        exclude_category_ids=transfer_cat_ids,
     )
     total_amount = sum((row.amount for row in rows), Decimal("0"))
 

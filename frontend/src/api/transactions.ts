@@ -15,6 +15,7 @@ export interface TransactionFilters {
   tag_id?: number;
   type?: string;
   search?: string;
+  exclude_transfers?: boolean;
   sort?: TransactionSort;
   page?: number;
   page_size?: number;

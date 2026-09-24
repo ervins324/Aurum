@@ -585,6 +585,7 @@ export interface IntegrationStatus {
   account_id: number | null;
   last_synced_at: string | null;
   is_syncing?: boolean;
+  sync_status?: string | null;
   last_sync_result?: IntegrationSyncResult | null;
 }
 

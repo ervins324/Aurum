@@ -19,6 +19,9 @@ class IntegrationRead(BaseModel):
     provider: str
     is_configured: bool
     is_syncing: bool = False
+    # Live status message updated throughout the background sync run.
+    # None when idle; cleared once the task finishes.
+    sync_status: str | None = None
     # Masked preview shown in the UI so the user knows something is stored,
     # e.g. "uUm…xQ9" for a Monobank token.
     token_preview: str | None = None

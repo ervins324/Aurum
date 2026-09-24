@@ -21,25 +21,39 @@ function formatPercent(value: number): string {
   return `${sign}${value.toFixed(0)}%`;
 }
 
+import { useExcludeTransfers } from "@/hooks/useExcludeTransfers";
+
 export function DashboardPage() {
   const { t } = useTranslation();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [excludeTransfers, setExcludeTransfers] = useExcludeTransfers();
   const { data: years } = useTransactionYears();
 
-  const { data, isLoading, isError } = useDashboardSummary(year, month);
+  const { data, isLoading, isError } = useDashboardSummary(year, month, excludeTransfers);
   const rate = data ? savingsRate(Number(data.real_income), Number(data.net)) : null;
 
   return (
     <div className="space-y-5">
       <AlertBanner excludeKeys={["risky_allocation_exceeded"]} />
 
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <MonthSelector month={month} onChange={setMonth} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="min-w-0 flex-1">
+            <MonthSelector month={month} onChange={setMonth} />
+          </div>
+          <YearSelector years={years ?? [now.getFullYear()]} year={year} onChange={setYear} />
         </div>
-        <YearSelector years={years ?? [now.getFullYear()]} year={year} onChange={setYear} />
+        <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary select-none shrink-0">
+          <input
+            type="checkbox"
+            checked={excludeTransfers}
+            onChange={(e) => setExcludeTransfers(e.target.checked)}
+            className="rounded border-gridline text-primary focus:ring-primary h-4 w-4"
+          />
+          <span>{t("dashboard.excludeTransfers")}</span>
+        </label>
       </div>
 
       {isError && (

@@ -10,9 +10,9 @@ export function useCategorySpendingReport(categoryId: number | null, startDate?:
   });
 }
 
-export function useCategoryRanking(kind: CategoryKind, startDate?: string, endDate?: string) {
+export function useCategoryRanking(kind: CategoryKind, startDate?: string, endDate?: string, excludeTransfers?: boolean) {
   return useQuery({
-    queryKey: ["category-ranking", kind, startDate, endDate],
-    queryFn: () => fetchCategoryRanking(kind, startDate, endDate),
+    queryKey: ["category-ranking", kind, startDate, endDate, excludeTransfers],
+    queryFn: () => fetchCategoryRanking(kind, startDate, endDate, excludeTransfers),
   });
 }

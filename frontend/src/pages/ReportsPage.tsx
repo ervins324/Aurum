@@ -17,6 +17,8 @@ import { useTranslation } from "@/lib/i18n";
 import { buildHierarchicalCategories, translateCategoryName } from "@/lib/categoryLabels";
 import type { Transaction } from "@/types";
 
+import { useExcludeTransfers } from "@/hooks/useExcludeTransfers";
+
 const PAGE_SIZE = 20;
 
 export function ReportsPage() {
@@ -40,6 +42,7 @@ export function ReportsPage() {
   const [page, setPage] = useState(1);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [excludeTransfers, setExcludeTransfers] = useExcludeTransfers();
 
   useEffect(() => {
     if (categoryId === null && categories && categories.length > 0) {
@@ -49,12 +52,13 @@ export function ReportsPage() {
   }, [categories, categoryId]);
 
   const { startDate, endDate } = computeRange(range, customRange);
-  const { data: ranking, isLoading: isRankingLoading } = useCategoryRanking("expense", startDate, endDate);
+  const { data: ranking, isLoading: isRankingLoading } = useCategoryRanking("expense", startDate, endDate, excludeTransfers);
   const { data: report, isLoading: isReportLoading } = useCategorySpendingReport(categoryId, startDate, endDate);
   const { data: transactions, isLoading: isTransactionsLoading } = useTransactions({
     category_id: categoryId ?? undefined,
     start_date: startDate,
     end_date: endDate,
+    exclude_transfers: excludeTransfers,
     sort,
     page,
     page_size: PAGE_SIZE,
@@ -120,7 +124,19 @@ export function ReportsPage() {
             )}
           </Select>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary select-none">
+            <input
+              type="checkbox"
+              checked={excludeTransfers}
+              onChange={(e) => {
+                setExcludeTransfers(e.target.checked);
+                setPage(1);
+              }}
+              className="rounded border-gridline text-primary focus:ring-primary h-4 w-4"
+            />
+            <span>{t("reports.excludeTransfers")}</span>
+          </label>
           <PillSelector
             options={RANGE_OPTIONS}
             value={range}
