@@ -257,6 +257,7 @@ export function TransactionsPage() {
           className="sm:w-56"
         >
           <option value="date_desc">{t("transactions.sortDateDesc")}</option>
+          <option value="date_asc">{t("transactions.sortDateAsc")}</option>
           <option value="amount_desc">{t("transactions.sortAmountDesc")}</option>
           <option value="amount_asc">{t("transactions.sortAmountAsc")}</option>
         </Select>

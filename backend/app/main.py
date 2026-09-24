@@ -15,6 +15,7 @@ from app.api.routes import (
     dashboard,
     goals,
     insights,
+    integrations,
     net_worth,
     recurring,
     reports,
@@ -79,6 +80,7 @@ app.include_router(net_worth.router, prefix="/api")
 app.include_router(backup.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(insights.router, prefix="/api")
+app.include_router(integrations.router, prefix="/api")
 app.include_router(settings_routes.router, prefix="/api")
 app.include_router(budgets.router, prefix="/api")
 app.include_router(advice.router, prefix="/api")

@@ -1,4 +1,5 @@
 from datetime import date as date_
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -88,6 +89,8 @@ class TransactionFields(BaseModel):
     merchant: str | None = Field(default=None, max_length=150)
     notes: str | None = Field(default=None, max_length=2000)
     date: date_
+    # Precise timestamp from bank APIs (UTC). NULL for manually-entered transactions.
+    transaction_time: datetime | None = None
 
     # Auto-capitalizes "траты на продукты" -> "Траты на продукты" so mixed
     # casing from quick manual entry doesn't need fixing by hand later.
@@ -154,6 +157,7 @@ class TransactionUpdate(BaseModel):
     merchant: str | None = Field(default=None, max_length=150)
     notes: str | None = Field(default=None, max_length=2000)
     date: date_ | None = None
+    transaction_time: datetime | None = None
     # Omitted -> tags untouched; sent (even as []) -> replaces the full tag set.
     tag_ids: list[int] | None = None
     # Omitted -> splits untouched; sent (even as []) -> replaces the full

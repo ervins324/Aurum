@@ -1,9 +1,10 @@
 from datetime import date as date_
+from datetime import time as time_
 from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, Time, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -106,12 +107,14 @@ async def list_transactions(
     month: int | None = Query(default=None, ge=1, le=12),
     start_date: date_ | None = Query(default=None),
     end_date: date_ | None = Query(default=None),
+    start_time: time_ | None = Query(default=None),
+    end_time: time_ | None = Query(default=None),
     account_id: int | None = None,
     category_id: int | None = None,
     tag_id: int | None = None,
     type: TransactionType | None = None,
     search: str | None = Query(default=None, min_length=1, max_length=255),
-    sort: Literal["date_desc", "amount_desc", "amount_asc"] = Query(default="date_desc"),
+    sort: Literal["date_desc", "date_asc", "amount_desc", "amount_asc"] = Query(default="date_desc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
@@ -131,6 +134,12 @@ async def list_transactions(
     if end_date is not None:
         stmt = stmt.where(Transaction.date <= end_date)
         count_stmt = count_stmt.where(Transaction.date <= end_date)
+    if start_time is not None:
+        stmt = stmt.where(cast(Transaction.transaction_time, Time) >= start_time)
+        count_stmt = count_stmt.where(cast(Transaction.transaction_time, Time) >= start_time)
+    if end_time is not None:
+        stmt = stmt.where(cast(Transaction.transaction_time, Time) <= end_time)
+        count_stmt = count_stmt.where(cast(Transaction.transaction_time, Time) <= end_time)
     if account_id is not None:
         stmt = stmt.where(Transaction.account_id == account_id)
         count_stmt = count_stmt.where(Transaction.account_id == account_id)
@@ -153,12 +162,13 @@ async def list_transactions(
     if search is not None:
         # Lets the user find a transaction from any period by keyword (e.g. an
         # item bought months ago) without knowing which month to look in first —
-        # matches description, merchant, and notes so any of those fields can surface it.
+        # matches description, merchant, notes, and time so any of those fields can surface it.
         pattern = f"%{search.strip()}%"
         search_clause = or_(
             Transaction.description.ilike(pattern),
             Transaction.merchant.ilike(pattern),
             Transaction.notes.ilike(pattern),
+            cast(Transaction.transaction_time, String).ilike(pattern),
         )
         stmt = stmt.where(search_clause)
         count_stmt = count_stmt.where(search_clause)
@@ -167,11 +177,13 @@ async def list_transactions(
 
     # id as a tiebreaker keeps pagination stable when many rows share a date/amount.
     if sort == "amount_desc":
-        stmt = stmt.order_by(Transaction.amount.desc(), Transaction.id.desc())
+        stmt = stmt.order_by(Transaction.amount.desc(), Transaction.date.desc(), Transaction.transaction_time.desc().nulls_last(), Transaction.id.desc())
     elif sort == "amount_asc":
-        stmt = stmt.order_by(Transaction.amount.asc(), Transaction.id.desc())
+        stmt = stmt.order_by(Transaction.amount.asc(), Transaction.date.desc(), Transaction.transaction_time.desc().nulls_last(), Transaction.id.desc())
+    elif sort == "date_asc":
+        stmt = stmt.order_by(Transaction.date.asc(), Transaction.transaction_time.asc().nulls_first(), Transaction.id.asc())
     else:
-        stmt = stmt.order_by(Transaction.date.desc(), Transaction.id.desc())
+        stmt = stmt.order_by(Transaction.date.desc(), Transaction.transaction_time.desc().nulls_last(), Transaction.id.desc())
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 
     result = await session.execute(stmt)

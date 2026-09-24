@@ -1,13 +1,15 @@
 import { api } from "@/api/client";
 import type { Transaction, TransactionInput, TransactionPage } from "@/types";
 
-export type TransactionSort = "date_desc" | "amount_desc" | "amount_asc";
+export type TransactionSort = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
 
 export interface TransactionFilters {
   year?: number;
   month?: number;
   start_date?: string;
   end_date?: string;
+  start_time?: string;
+  end_time?: string;
   account_id?: number;
   category_id?: number;
   tag_id?: number;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeftRight, CalendarSearch, Pencil, SquareDivide, StickyNote, Trash2 } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import { getCategoryIcon } from "@/lib/icons";
-import { formatCurrency, formatTransactionDate } from "@/lib/format";
+import { formatCurrency, formatTransactionDate, formatTransactionTime } from "@/lib/format";
 import { useTranslation } from "@/lib/i18n";
 import { categoryPath, translateCategoryName } from "@/lib/categoryLabels";
 import { useCategories } from "@/hooks/useCategories";
@@ -46,6 +46,8 @@ export function TransactionsTable({ items, onEdit, onDelete, onJumpToMonth }: Tr
               ? categoryPath(tx.category, categories)
               : null;
 
+          const timeStr = formatTransactionTime(tx.transaction_time);
+
           return (
             <li key={tx.id} className="group flex items-center gap-3 py-3">
               <span
@@ -58,7 +60,8 @@ export function TransactionsTable({ items, onEdit, onDelete, onJumpToMonth }: Tr
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-text-primary">{tx.description}</span>
                 <span className="block truncate text-xs text-text-muted">
-                  {formatTransactionDate(tx.date, Boolean(onJumpToMonth))} · {tx.account.name}
+                  {formatTransactionDate(tx.date, Boolean(onJumpToMonth))}
+                  {timeStr ? ` · ${timeStr}` : ""} · {tx.account.name}
                   {isTransfer && tx.transfer_account_id ? ` ${t("transactions.transferSuffix")}` : ""}
                   {categoryLabel ? ` · ${categoryLabel}` : ""}
                   {tx.tags.length > 0 ? ` · ${tx.tags.map((tag) => tag.name).join(", ")}` : ""}

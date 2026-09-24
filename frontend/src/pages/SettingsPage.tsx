@@ -1,6 +1,7 @@
 import { AlertThresholdsCard } from "@/components/settings/AlertThresholdsCard";
 import { BackupCard } from "@/components/settings/BackupCard";
 import { CurrencyCard } from "@/components/settings/CurrencyCard";
+import { IntegrationsCard } from "@/components/settings/IntegrationsCard";
 import { PreferencesCard } from "@/components/settings/PreferencesCard";
 import { useAppSettings } from "@/hooks/useSettings";
 import { t } from "@/lib/i18n";
@@ -16,6 +17,7 @@ export function SettingsPage() {
       <PreferencesCard />
       <CurrencyCard />
       <AlertThresholdsCard />
+      <IntegrationsCard />
       <BackupCard />
       {appSettings?.app_version && (
         <p className="text-center text-xs text-text-muted">
@@ -25,3 +27,4 @@ export function SettingsPage() {
     </div>
   );
 }
+

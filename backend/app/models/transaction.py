@@ -1,7 +1,8 @@
 """A single money movement: income, expense, or a transfer between accounts."""
 from datetime import date as date_
+from datetime import datetime as datetime_
 
-from sqlalchemy import Date, Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -30,6 +31,13 @@ class Transaction(Base, TimestampMixin):
     merchant: Mapped[str | None] = mapped_column(String(150), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     date: Mapped[date_] = mapped_column(Date, nullable=False)
+    # Precise timestamp from bank APIs (UTC). NULL for manually-entered transactions.
+    transaction_time: Mapped[datetime_ | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Provider-prefixed deduplication key set during bank sync (e.g. "mono_abc123",
+    # "bybit_xyz789"). NULL for manually entered transactions. Unique so an upsert
+    # on (external_id) can skip already-ingested records without duplicating them.
+    external_id: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True, index=True)
+
 
     account: Mapped["Account"] = relationship(back_populates="transactions", foreign_keys=[account_id])
     transfer_account: Mapped["Account | None"] = relationship(foreign_keys=[transfer_account_id])

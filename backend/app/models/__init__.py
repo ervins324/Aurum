@@ -4,6 +4,8 @@ from app.models.budget import Budget
 from app.models.category import Category
 from app.models.crypto import CryptoHolding, CryptoPortfolio, CryptoSyncState, CryptoTransaction
 from app.models.goal import Goal, GoalContribution
+from app.models.integration import Integration
+from app.models.nbu_rate_cache import NbuRateCache
 from app.models.recurring import RecurringTransaction
 from app.models.settings import AppSettings
 from app.models.tag import Tag
@@ -22,8 +24,11 @@ __all__ = [
     "CryptoTransaction",
     "Goal",
     "GoalContribution",
+    "Integration",
+    "NbuRateCache",
     "RecurringTransaction",
     "Tag",
     "Transaction",
     "TransactionSplit",
 ]
+

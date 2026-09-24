@@ -92,6 +92,8 @@ export interface Transaction {
   merchant: string | null;
   notes: string | null;
   date: string;
+  /** Precise UTC timestamp from bank sync. Null for manually-entered transactions. */
+  transaction_time: string | null;
   account: Account;
   category: Category | null;
   tags: Tag[];
@@ -570,3 +572,38 @@ export interface AppSettings {
   app_version: string;
 }
 
+/** Safe (masked) status for a provider integration.  Credentials are never
+ *  returned in plaintext — only a brief masked preview is included. */
+export interface IntegrationStatus {
+  provider: string;
+  is_configured: boolean;
+  /** Masked token preview, e.g. "uUm…xQ9". Null when not configured. */
+  token_preview: string | null;
+  /** Masked API key preview. Null when not configured or N/A. */
+  key_preview: string | null;
+  account_id: number | null;
+  last_synced_at: string | null;
+}
+
+export interface MonobankIntegrationInput {
+  token: string;
+  account_id: number;
+}
+
+export interface BybitIntegrationInput {
+  api_key: string;
+  api_secret: string;
+  account_id: number;
+}
+
+export interface IntegrationSyncResult {
+  provider: string;
+  synced_count: number;
+  skipped_count: number;
+  error: string | null;
+}
+
+export interface MonobankSyncRequest {
+  sync_from?: string | null;  // ISO date YYYY-MM-DD
+  sync_to?: string | null;
+}

@@ -103,6 +103,18 @@ export function formatTransactionDate(isoDate: string, includeYear = false): str
   }).format(date);
 }
 
+/** Formats a UTC ISO timestamp (from bank sync) as local time HH:MM.
+ *  Returns null if the input is falsy — manual transactions have no time. */
+export function formatTransactionTime(isoTimestamp: string | null | undefined): string | null {
+  if (!isoTimestamp) return null;
+  const date = new Date(isoTimestamp);
+  if (isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(getIntlLocale(), {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 /** Russian noun pluralization: pick the right form for 1/2-4/5+ (with the
  * 11-14 exception), e.g. pluralizeRu(3, "актив", "актива", "активов"). */
 export function pluralizeRu(count: number, one: string, few: string, many: string): string {

@@ -285,6 +285,7 @@ const ru = {
   "transactions.confirmDelete": "Удалить транзакцию «{{description}}»?",
   "transactions.transferSuffix": "→ перевод",
   "transactions.sortDateDesc": "Сначала новые",
+  "transactions.sortDateAsc": "Сначала старые",
   "transactions.sortAmountDesc": "Сумма: сначала больше",
   "transactions.sortAmountAsc": "Сумма: сначала меньше",
 
@@ -384,7 +385,50 @@ const ru = {
     "Восстановление полностью заменяет текущие данные содержимым файла — это нельзя отменить.",
   "settings.version": "Aurum v{{version}}",
 
+  "settings.integrationsTitle": "Интеграции",
+  "settings.integrationsHint":
+    "Подключите банковские аккаунты для автоматической загрузки транзакций. Токены хранятся зашифрованными и никогда не передаются в открытом виде.",
+  "settings.integrations.configured": "Подключено",
+  "settings.integrations.notConfigured": "Не настроено",
+  "settings.integrations.syncNow": "Синхронизировать",
+  "settings.integrations.syncing": "Синхронизация…",
+  "settings.integrations.remove": "Удалить",
+  "settings.integrations.confirmRemove": "Удалить учётные данные {{provider}}?",
+  "settings.integrations.accountLabel": "Счёт для транзакций",
+  "settings.integrations.selectAccount": "Выберите счёт…",
+  "settings.integrations.syncSuccess":
+    "Готово: загружено {{synced}}, пропущено {{skipped}} (уже есть).",
+  "settings.integrations.syncError": "Ошибка синхронизации: {{error}}",
+  "settings.integrations.monobank.tokenLabel": "Персональный токен",
+  "settings.integrations.monobank.tokenPlaceholder": "Токен с api.monobank.ua",
+  "settings.integrations.monobank.tokenHint":
+    "Получите на api.monobank.ua → Персональный токен.",
+  "settings.integrations.monobank.syncNote":
+    "Между каждым 30-дневным блоком ожидание 61 сек. (лимит Monobank).",
+  "settings.integrations.monobank.syncFrom": "Синхронизировать с",
+  "settings.integrations.monobank.syncTo": "по",
+  "settings.integrations.bybit.keyLabel": "API-ключ",
+  "settings.integrations.bybit.keyPlaceholder": "Bybit API key",
+  "settings.integrations.bybit.secretLabel": "API-секрет",
+  "settings.integrations.bybit.secretPlaceholder": "Bybit API secret",
+  "settings.integrations.bybit.hint":
+    "Создайте ключ на bybit.com → Аккаунт → Управление API. Необходимы права на чтение транзакций карты.",
+
+  "recurring.forecast.title": "Прогноз платежей",
+  "recurring.forecast.monthsLabel": "Горизонт прогноза:",
+  "recurring.forecast.empty": "Нет активных регулярных платежей для прогноза.",
+  "recurring.forecast.totalIncome": "Ожидаемые поступления",
+  "recurring.forecast.totalExpense": "Ожидаемые списания",
+  "recurring.forecast.net": "Чистый прогноз",
+  "recurring.forecast.monthlyAvg": "В среднем в месяц",
+  "recurring.forecast.inflow": "Поступления",
+  "recurring.forecast.outflow": "Списания",
+  "recurring.forecast.showDetails": "Показать операции",
+  "recurring.forecast.hideDetails": "Скрыть операции",
+  "recurring.forecast.transactionsCount": "{{count}} операций",
+
   "insights.negativeCashFlow": "Расходы превышают доходы {{months}} мес. подряд (по последним завершённым месяцам)",
+
   "insights.netWorthDecline": "Капитал снижается {{months}} мес. подряд",
   "insights.budgetExceededOne": "Превышен бюджет в 1 категории в этом месяце",
   "insights.budgetExceeded": "Превышен бюджет в {{count}} категориях в этом месяце",
@@ -810,6 +854,7 @@ const en: Record<keyof typeof ru, string> = {
   "transactions.confirmDelete": "Delete transaction “{{description}}”?",
   "transactions.transferSuffix": "→ transfer",
   "transactions.sortDateDesc": "Newest first",
+  "transactions.sortDateAsc": "Oldest first",
   "transactions.sortAmountDesc": "Amount: high to low",
   "transactions.sortAmountAsc": "Amount: low to high",
 
@@ -909,7 +954,50 @@ const en: Record<keyof typeof ru, string> = {
     "Restoring completely replaces your current data with the file's contents — this cannot be undone.",
   "settings.version": "Aurum v{{version}}",
 
+  "settings.integrationsTitle": "Integrations",
+  "settings.integrationsHint":
+    "Connect your bank accounts to automatically import transactions. Tokens are stored encrypted and never transmitted in plaintext.",
+  "settings.integrations.configured": "Connected",
+  "settings.integrations.notConfigured": "Not configured",
+  "settings.integrations.syncNow": "Sync now",
+  "settings.integrations.syncing": "Syncing…",
+  "settings.integrations.remove": "Remove",
+  "settings.integrations.confirmRemove": "Remove {{provider}} credentials?",
+  "settings.integrations.accountLabel": "Target account",
+  "settings.integrations.selectAccount": "Select an account…",
+  "settings.integrations.syncSuccess":
+    "Done: {{synced}} imported, {{skipped}} skipped (already exist).",
+  "settings.integrations.syncError": "Sync error: {{error}}",
+  "settings.integrations.monobank.tokenLabel": "Personal token",
+  "settings.integrations.monobank.tokenPlaceholder": "Token from api.monobank.ua",
+  "settings.integrations.monobank.tokenHint":
+    "Get it at api.monobank.ua → Personal token.",
+  "settings.integrations.monobank.syncNote":
+    "Monobank requires a 61-second pause between each 30-day chunk.",
+  "settings.integrations.monobank.syncFrom": "Sync from",
+  "settings.integrations.monobank.syncTo": "to",
+  "settings.integrations.bybit.keyLabel": "API key",
+  "settings.integrations.bybit.keyPlaceholder": "Bybit API key",
+  "settings.integrations.bybit.secretLabel": "API secret",
+  "settings.integrations.bybit.secretPlaceholder": "Bybit API secret",
+  "settings.integrations.bybit.hint":
+    "Create a key at bybit.com → Account → API Management. Read permissions for card transactions are required.",
+
+  "recurring.forecast.title": "Payment forecast",
+  "recurring.forecast.monthsLabel": "Forecast horizon:",
+  "recurring.forecast.empty": "No active recurring payments to forecast.",
+  "recurring.forecast.totalIncome": "Forecasted Inflow",
+  "recurring.forecast.totalExpense": "Forecasted Outflow",
+  "recurring.forecast.net": "Net Forecast",
+  "recurring.forecast.monthlyAvg": "Monthly Average",
+  "recurring.forecast.inflow": "Inflow",
+  "recurring.forecast.outflow": "Outflow",
+  "recurring.forecast.showDetails": "Show transactions",
+  "recurring.forecast.hideDetails": "Hide transactions",
+  "recurring.forecast.transactionsCount": "{{count}} transactions",
+
   "insights.negativeCashFlow": "Expenses have exceeded income for {{months}} months in a row (based on the last completed months)",
+
   "insights.netWorthDecline": "Net worth has been declining for {{months}} months in a row",
   "insights.budgetExceededOne": "Budget exceeded in 1 category this month",
   "insights.budgetExceeded": "Budget exceeded in {{count}} categories this month",

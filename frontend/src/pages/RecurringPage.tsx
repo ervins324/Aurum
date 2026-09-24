@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { RecurringList } from "@/components/recurring/RecurringList";
 import { RecurringFormModal } from "@/components/recurring/RecurringFormModal";
+import { RecurringForecast } from "@/components/recurring/RecurringForecast";
 import { useDeleteRecurring, usePostRecurring, useRecurring } from "@/hooks/useRecurring";
 import { useTranslation } from "@/lib/i18n";
 import type { RecurringTransaction } from "@/types";
@@ -63,6 +64,10 @@ export function RecurringPage() {
       </Card>
 
       <RecurringFormModal open={modalOpen} onClose={() => setModalOpen(false)} recurring={editingItem} />
+
+      {/* Forecast panel — shows projected occurrences for active items */}
+      <RecurringForecast items={items ?? []} />
     </div>
   );
 }
+
