@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import {
   useIntegrations,
   useSetMonobankIntegration,
-  useSetBybitIntegration,
   useDeleteIntegration,
   useSyncIntegration,
 } from "@/hooks/useIntegrations";
@@ -402,174 +401,6 @@ function MonobankSection() {
 }
 
 // ---------------------------------------------------------------------------
-// Bybit section
-// ---------------------------------------------------------------------------
-
-function BybitSection() {
-  const { t } = useTranslation();
-  const { data: integrations } = useIntegrations();
-  const setBybit = useSetBybitIntegration();
-  const deleteBybit = useDeleteIntegration();
-  const syncBybit = useSyncIntegration();
-
-  const status = integrations?.find((i) => i.provider === "bybit");
-
-  const [expanded, setExpanded] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [apiSecret, setApiSecret] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [lastResult, setLastResult] = useState<IntegrationSyncResult | null>(null);
-
-  async function handleSave() {
-    if (!apiKey.trim() || !apiSecret.trim() || !accountId) return;
-    await setBybit.mutateAsync({
-      api_key: apiKey.trim(),
-      api_secret: apiSecret.trim(),
-      account_id: Number(accountId),
-    });
-    setApiKey("");
-    setApiSecret("");
-    setExpanded(false);
-  }
-
-  async function handleSync() {
-    setLastResult(null);
-    const result = await syncBybit.mutateAsync({ provider: "bybit" });
-    setLastResult(result);
-  }
-
-  async function handleDelete() {
-    if (!window.confirm(t("settings.integrations.confirmRemove", { provider: "Bybit Card" }))) return;
-    setLastResult(null);
-    await deleteBybit.mutateAsync("bybit");
-  }
-
-  const isConfigured = status?.is_configured ?? false;
-  const isSyncing = Boolean(status?.is_syncing) || syncBybit.isPending;
-  const isSaving = setBybit.isPending;
-  const displayResult = lastResult || status?.last_sync_result;
-
-  return (
-    <div className="pb-4 last:pb-0">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        {/* Header row */}
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f7a600] text-xs font-bold text-black">
-            B
-          </span>
-          <div>
-            <p className="text-sm font-medium text-text-primary">Bybit Card</p>
-            {isConfigured && status?.key_preview && (
-              <p className="text-xs text-text-muted font-mono">{status.key_preview}</p>
-            )}
-          </div>
-          <StatusBadge isConfigured={isConfigured} />
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2">
-          {isConfigured && (
-            <>
-              <Button
-                variant="secondary"
-                disabled={isSyncing}
-                onClick={handleSync}
-                className="gap-1.5 text-xs"
-              >
-                <RefreshCw size={13} className={isSyncing ? "animate-spin" : ""} />
-                {isSyncing
-                  ? t("settings.integrations.syncing")
-                  : t("settings.integrations.syncNow")}
-              </Button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="rounded-md p-1.5 text-text-muted hover:bg-surface-2 hover:text-danger"
-                aria-label={t("settings.integrations.remove")}
-              >
-                <Trash2 size={14} />
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="rounded-md p-1.5 text-text-muted hover:bg-surface-2 hover:text-text-primary"
-            aria-label={expanded ? t("common.collapse") : t("common.expand")}
-          >
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Live sync stage */}
-      {isSyncing && (
-        <div className="mt-2">
-          <SyncProgressBanner statusMessage={status?.sync_status} />
-        </div>
-      )}
-
-      {/* Sync result */}
-      {!isSyncing && displayResult && (
-        <div className="mt-2">
-          <SyncResultBanner result={displayResult} />
-        </div>
-      )}
-
-      {/* Credential form */}
-      {expanded && (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="bybit-key">{t("settings.integrations.bybit.keyLabel")}</Label>
-            <Input
-              id="bybit-key"
-              type="password"
-              placeholder={t("settings.integrations.bybit.keyPlaceholder")}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <Label htmlFor="bybit-secret">{t("settings.integrations.bybit.secretLabel")}</Label>
-            <Input
-              id="bybit-secret"
-              type="password"
-              placeholder={t("settings.integrations.bybit.secretPlaceholder")}
-              value={apiSecret}
-              onChange={(e) => setApiSecret(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <Label htmlFor="bybit-account">{t("settings.integrations.accountLabel")}</Label>
-            <AccountSelector
-              id="bybit-account"
-              value={accountId}
-              onChange={setAccountId}
-            />
-          </div>
-          <p className="text-xs text-text-muted self-end sm:col-span-2">
-            {t("settings.integrations.bybit.hint")}
-          </p>
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <Button
-              onClick={handleSave}
-              disabled={!apiKey.trim() || !apiSecret.trim() || !accountId || isSaving}
-            >
-              {isSaving ? t("common.saving") : t("common.save")}
-            </Button>
-            <Button variant="secondary" onClick={() => setExpanded(false)}>
-              {t("common.cancel")}
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main card
 // ---------------------------------------------------------------------------
 
@@ -583,7 +414,6 @@ export function IntegrationsCard() {
       <CardContent className="space-y-4">
         <p className="text-sm text-text-secondary">{t("settings.integrationsHint")}</p>
         <MonobankSection />
-        <BybitSection />
       </CardContent>
     </Card>
   );

@@ -126,27 +126,15 @@ Backend tests run against an isolated Postgres test database (`aurum_test`) insi
 
 ---
 
-## Bank & Card Parsing Rules (Monobank & Bybit)
+## Bank Statement Parsing Rules (Monobank)
 
-### Monobank Statement Parsing (`app/services/monobank_client.py`)
+### Monobank Statement Parsing
 - **Units**: Monobank amounts are in kopecks/cents; always divide by 100 (`Decimal(amount) / 100`).
 - **ISO Currency Codes**: Map integer codes (`980` -> UAH, `840` -> USD, `978` -> EUR).
 - **Direction**: Negative amount represents an `EXPENSE`, positive represents `INCOME`.
 - **Deduplication**: Store external ID as `external_id = f"mono_{item.id}"`.
-- **MCC Auto-Categorization**: Map merchant category codes with `resolve_category_by_mcc(session, item.mcc)`.
-- **Chunking**: Adhere to Monobank's 30-day statement limit per call using `get_extended_statement`.
-
-### Bybit Card Transaction Parsing (`app/services/bybit_client.py`)
-- **API & Rate Limits**: POST to `/v5/card/transaction/query-asset-records` with HMAC-SHA256 signature; back off on 429 or codes `10006`/`10014`.
-- **Dual Amounts & Currency Conversion**:
-  - `transactionAmount` & `transactionCurrency`: terminal charge (e.g., UAH paid amount at local terminals).
-  - `basicAmount` & `basicCurrency`: funding deduction from Bybit wallet (usually USDT).
-  - If charged in UAH (`transactionCurrency == "UAH"`), record the exact UAH paid amount.
-  - If charged in USD/USDT/EUR, convert to UAH via exchange rate (NBU / Monobank rate) and store original currency & amount in `notes`.
-- **Transaction Types & Status**:
-  - Skip failed or declined operations (`item.is_failed` / `status == "2"`).
-  - Refunds / chargebacks (`is_refund` / `side in ("4", "5", "8", "10", "11")`) map to `TransactionType.INCOME`.
-- **Timestamps & Deduplication**: Convert millisecond timestamps (`item.time / 1000`); use `external_id = f"bybit_{item.id}"`.
+- **MCC Auto-Categorization**: Map merchant category codes with `resolve_category_id_by_mcc(session, item.mcc, tx_type)`.
+- **Chunking**: Adhere to Monobank's 30-day statement limit per call using rolling 30-day windows and rate limiting.
 
 ---
 

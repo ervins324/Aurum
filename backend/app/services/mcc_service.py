@@ -40,7 +40,7 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     4900: "Housing & Utilities",  # Utilities — electric, gas, water
     4814: "Housing & Utilities",  # Phone card calls
     4815: "Housing & Utilities",  # Monthly phone bills
-    4816: "Housing & Utilities",  # Computer network / ISP
+    4816: ("Subscriptions", "Housing & Utilities"),  # Computer network / ISP / cloud file-sharing (CEMEA High Risk)
     4899: "Housing & Utilities",  # Cable / pay TV
     1520: "Housing & Utilities",  # General contractors — residential
     1711: "Housing & Utilities",  # HVAC / plumbing
@@ -55,26 +55,28 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     4112: "Transportation",     # Passenger railways
     4121: "Transportation",     # Taxis / limousines
     4131: "Transportation",     # Bus lines
+    4214: ("Logistics", "Transportation"),  # Local delivery / freight
     4215: ("Logistics", "Transportation"),  # Courier services / logistics / freight delivery
     9402: ("Logistics", "Transportation"),  # Postal Services — Government Only
-    4511: "Transportation",     # Airlines
-    3000: "Transportation",     # Airlines
+    4511: ("Airlines", "Travel", "Transportation"),  # Airlines general industry code
+    3000: ("Airlines", "Travel", "Transportation"),  # Airlines
     4582: "Transportation",     # Airport terminals
-    4722: "Transportation",     # Travel agencies
+    4722: ("Travel", "Transportation"),  # Travel agencies
     4784: "Transportation",     # Tolls
     4789: "Transportation",     # Transportation services NEC
-    5541: "Transportation",     # Gas stations
-    5542: "Transportation",     # Automated fuel dispensers
-    5552: "Transportation",     # EV charging
-    7512: "Transportation",     # Car rental
+    5541: "Transportation",     # Gas stations / service stations (Visa Mandatory)
+    5542: "Transportation",     # Automated fuel dispensers / AFD (Visa Mandatory)
+    5552: "Transportation",     # EV charging (Visa Mandatory)
+    7011: ("Hotels", "Travel", "Transportation", "Housing & Utilities"),  # Hotels / motels / resorts general
+    7512: ("Car Rental", "Travel", "Transportation"),  # Car rental general industry code
     7523: "Transportation",     # Parking
     7531: "Transportation",     # Auto service stations
     7538: "Transportation",     # Auto repair general
     7542: "Transportation",     # Car wash
 
     # ── Health & Fitness ──
-    5122: "Health & Fitness",    # Pharmacies (wholesale)
-    5912: "Health & Fitness",    # Pharmacies (retail)
+    5122: "Health & Fitness",    # Pharmacies (wholesale) — CEMEA High Risk
+    5912: "Health & Fitness",    # Pharmacies (retail / online) — CEMEA High Risk
     8011: "Health & Fitness",    # Doctors
     8021: "Health & Fitness",    # Dentists
     8031: "Health & Fitness",    # Osteopaths
@@ -93,7 +95,7 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     5211: "Shopping",           # Building materials
     5251: "Shopping",           # Hardware stores
     5261: "Shopping",           # Garden supplies
-    5262: "Shopping",           # Marketplaces
+    5262: "Shopping",           # Marketplaces / payment facilitators (Visa Mandatory)
     5297: "Shopping",           # Retail internet volume
     5309: "Shopping",           # Duty-free
     5310: "Shopping",           # Discount stores
@@ -127,10 +129,11 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     5947: "Shopping",           # Gift / novelty shops
     5948: "Shopping",           # Leather goods / luggage
     5949: "Shopping",           # Fabric / sewing
+    5966: "Shopping",           # Direct marketing — outbound telemarketing (CEMEA High Risk)
     5970: "Shopping",           # Art / craft supplies
     5977: "Shopping",           # Cosmetics
     5992: "Shopping",           # Florists
-    5993: "Shopping",           # Tobacco stores
+    5993: "Shopping",           # Tobacco / cigar stores / e-cigarettes (CEMEA High Risk)
     5995: "Shopping",           # Pet shops
     5999: "Shopping",           # Misc retail
 
@@ -146,17 +149,22 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     7991: "Entertainment",      # Tourist attractions
     7993: "Entertainment",      # Video game supplies
     7994: "Entertainment",      # Video game arcades
+    7995: ("Gambling", "Betting", "Entertainment"),  # Online gambling, betting, casinos, bookmakers (Visa Mandatory & CEMEA High Risk)
     7996: "Entertainment",      # Amusement parks / carnivals
-    7997: "Entertainment",      # Clubs — country / sports
+    7997: ("Health & Fitness", "Entertainment"),  # Clubs — country / sports
     7998: "Entertainment",      # Aquariums / zoos
     7999: "Entertainment",      # Recreation NEC
+    9406: ("Lottery", "Gambling", "Entertainment"),  # State lotteries outside US (Visa Mandatory)
     5045: "Entertainment",      # Computers / peripherals (gaming / hobby)
 
     # ── Subscriptions ──
     5815: "Subscriptions",      # Digital goods — A/V media
-    5816: "Subscriptions",      # Digital goods — games
+    5816: ("Subscriptions", "Entertainment"),  # Digital goods — games / skilled gaming (CEMEA High Risk)
     5817: "Subscriptions",      # Digital goods — apps
     5818: "Subscriptions",      # Digital goods — multi-category
+    5967: ("Subscriptions", "Entertainment"),  # Adult content & services (CEMEA High Risk)
+    5968: "Subscriptions",      # Continuity / subscription merchants / negative option (CEMEA High Risk)
+    7273: ("Subscriptions", "Entertainment", "Shopping"),  # Dating services & escort (CEMEA High Risk)
     7372: "Subscriptions",      # Programming / data processing / SaaS
 
     # ── Beauty (mapped to Shopping if no dedicated category) ──
@@ -172,18 +180,74 @@ MCC_CATEGORY_MAP: dict[int, str] = {
     # ── Veterinary ──
     742: "Shopping",            # Veterinary services
 
-    # ── Financial services & money transfers ──
-    4829: ("Money Transfers", "Transfers"),  # Wire / money transfers
-    6012: ("Finance", "Financial Services", "Financial"),  # Financial institutions — merchandise, services, debt
+    # ── Financial services, cash & crypto (Visa Mandatory & CEMEA High Risk) ──
+    4829: ("Money Transfers", "Transfers"),  # Wire / money transfers / P2P / Visa Direct
+    6010: ("Cash", "Money Transfers", "Finance"),  # Manual cash disbursement — bank teller
+    6011: ("Cash", "Money Transfers", "Finance"),  # Automated cash disbursement — ATM
+    6012: ("Finance", "Financial Services", "Financial"),  # Financial institutions — merchandise, services, loan repayment
+    6051: ("Crypto", "Investments", "Finance"),  # Quasi-cash, crypto wallets, on-ramp
+    6211: ("Investments", "Finance"),  # Securities brokers / Forex / trading
 
     # ── Professional Services ──
     8999: ("Professional Services", "Services"),  # Professional Services - Not Elsewhere Classified
-
-    # ── Other financial services — intentionally unmapped ──
-    # 6009, 6010, 6011, 6050, 6051, 6211, 6300, 6381, 6513, 6532,
-    # 6533, 6535, 6536, 6537, 6538, 6540, 6611, 6760 → leave None
-    # (they will fall back to "Other" via resolve_fallback_other_category)
 }
+
+
+def resolve_target_by_mcc(mcc: int) -> str | tuple[str, ...] | None:
+    """Resolve an MCC to candidate Aurum category name(s).
+
+    1. Checks explicit MCC definitions in MCC_CATEGORY_MAP.
+    2. Falls back to industry ranges defined in MCC_CODES.md (Visa Merchant
+       Data Standards Manual / ISO 18245):
+       - 3000-3350: Airlines (individual carrier codes)
+       - 3351-3499: Car rental (individual agency codes)
+       - 3501-3883: Hotels & resorts (individual chain codes)
+       - 8000-8099: Healthcare & medical services
+       - 5600-5699: Clothing, shoes & accessories
+       - 5700-5799: Furniture, home appliances & electronics
+       - 5800-5814: Dining, restaurants & fast food
+       - 5400-5499: Food & grocery stores
+       - 5500-5599: Automotive dealers, gas & EV charging
+       - 7500-7549: Automotive services & parking
+       - 7800-7999: Entertainment & recreation
+       - 1500-1799: Construction & home improvement contractors
+
+    Returns None for invalid or unmapped codes.
+    """
+    if mcc in MCC_CATEGORY_MAP:
+        return MCC_CATEGORY_MAP[mcc]
+
+    # Standard MCCs are strictly 4 digits (0001 - 9999)
+    if not (1 <= mcc <= 9999):
+        return None
+
+    # Industry range fallbacks
+    if 3000 <= mcc <= 3350:
+        return ("Airlines", "Travel", "Transportation")
+    if 3351 <= mcc <= 3499:
+        return ("Car Rental", "Travel", "Transportation")
+    if 3501 <= mcc <= 3883:
+        return ("Hotels", "Travel", "Transportation", "Housing & Utilities")
+    if 8000 <= mcc <= 8099:
+        return "Health & Fitness"
+    if 5600 <= mcc <= 5699:
+        return "Shopping"
+    if 5700 <= mcc <= 5799:
+        return "Shopping"
+    if 5800 <= mcc <= 5814:
+        return "Dining Out"
+    if 5400 <= mcc <= 5499:
+        return "Groceries"
+    if 5500 <= mcc <= 5599:
+        return "Transportation"
+    if 7500 <= mcc <= 7549:
+        return "Transportation"
+    if 7800 <= mcc <= 7999:
+        return "Entertainment"
+    if 1500 <= mcc <= 1799:
+        return "Housing & Utilities"
+
+    return None
 
 
 async def resolve_category_id_by_mcc(
@@ -193,17 +257,17 @@ async def resolve_category_id_by_mcc(
 ) -> int | None:
     """Look up a category_id by MCC code.
 
-    Matches candidate category names from MCC_CATEGORY_MAP against the
-    user's existing categories (case-insensitive). Only matches categories
-    whose kind aligns with the transaction type (EXPENSE for expenses,
-    INCOME for income).
+    Matches candidate category names from MCC_CATEGORY_MAP or industry range
+    blocks against the user's existing categories (case-insensitive). Only
+    matches categories whose kind aligns with the transaction type (EXPENSE for
+    expenses, INCOME for income).
 
     For MCC 4829 (wire / money transfers) the category is auto-created if it
     doesn't exist yet — see resolve_or_create_money_transfers_category.
 
     Returns None if no MCC mapping exists or no matching category is found.
     """
-    if mcc is None or mcc not in MCC_CATEGORY_MAP:
+    if mcc is None:
         return None
 
     # MCC 4829 always gets the dedicated "Money Transfers" category,
@@ -212,7 +276,10 @@ async def resolve_category_id_by_mcc(
     if mcc == 4829:
         return await resolve_or_create_money_transfers_category(session, tx_type)
 
-    target = MCC_CATEGORY_MAP[mcc]
+    target = resolve_target_by_mcc(mcc)
+    if target is None:
+        return None
+
     candidates = [target] if isinstance(target, str) else list(target)
     expected_kind = (
         CategoryKind.EXPENSE if tx_type == TransactionType.EXPENSE else CategoryKind.INCOME

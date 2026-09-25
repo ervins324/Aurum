@@ -1,13 +1,12 @@
 import { api } from "@/api/client";
 import type {
-  BybitIntegrationInput,
   IntegrationStatus,
   IntegrationSyncResult,
   MonobankIntegrationInput,
   MonobankSyncRequest,
 } from "@/types";
 
-/** Fetch masked status for all providers (monobank + bybit). */
+/** Fetch masked status for configured providers (Monobank). */
 export function fetchIntegrations() {
   return api.get<IntegrationStatus[]>("/integrations");
 }
@@ -15,11 +14,6 @@ export function fetchIntegrations() {
 /** Save or update Monobank credentials. */
 export function setMonobankIntegration(input: MonobankIntegrationInput) {
   return api.put<IntegrationStatus>("/integrations/monobank", input);
-}
-
-/** Save or update Bybit credentials. */
-export function setBybitIntegration(input: BybitIntegrationInput) {
-  return api.put<IntegrationStatus>("/integrations/bybit", input);
 }
 
 /** Remove stored credentials for a provider. */

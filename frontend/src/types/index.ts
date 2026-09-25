@@ -594,12 +594,6 @@ export interface MonobankIntegrationInput {
   account_id: number;
 }
 
-export interface BybitIntegrationInput {
-  api_key: string;
-  api_secret: string;
-  account_id: number;
-}
-
 export interface IntegrationSyncResult {
   provider: string;
   synced_count: number;

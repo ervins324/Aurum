@@ -1,5 +1,5 @@
-"""Integration model — stores encrypted credentials for external bank/exchange
-providers (Monobank, Bybit).  One row per provider (unique constraint on
+"""Integration model — stores encrypted credentials for external bank
+providers (e.g., Monobank).  One row per provider (unique constraint on
 `provider`).  Credentials are encrypted via app.core.encryption (Fernet);
 they are never returned in plaintext from the API.
 """

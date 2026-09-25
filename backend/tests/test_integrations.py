@@ -28,9 +28,9 @@ async def test_list_integrations_empty_by_default(client: AsyncClient):
     resp = await client.get("/integrations")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 2
+    assert len(data) == 1
     providers = {item["provider"] for item in data}
-    assert providers == {"monobank", "bybit"}
+    assert providers == {"monobank"}
     for item in data:
         assert item["is_configured"] is False
         assert item["token_preview"] is None
@@ -66,24 +66,6 @@ async def test_set_and_delete_monobank_integration(client: AsyncClient, account_
     list_resp2 = await client.get("/integrations")
     mono2 = next(item for item in list_resp2.json() if item["provider"] == "monobank")
     assert mono2["is_configured"] is False
-
-
-@pytest.mark.asyncio
-async def test_set_and_delete_bybit_integration(client: AsyncClient, account_id: int):
-    payload = {
-        "api_key": "my_bybit_api_key_xyz",
-        "api_secret": "my_bybit_api_secret_secret",
-        "account_id": account_id,
-    }
-    resp = await client.put("/integrations/bybit", json=payload)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["provider"] == "bybit"
-    assert data["is_configured"] is True
-    assert data["key_preview"] == "my_…xyz"
-
-    del_resp = await client.delete("/integrations/bybit")
-    assert del_resp.status_code == 204
 
 
 @pytest.mark.asyncio
@@ -166,12 +148,42 @@ async def test_mcc_category_resolution(test_sessionmaker, categories: dict):
         assert await resolve_category_id_by_mcc(session, 6012, TransactionType.EXPENSE) == custom_finance.id
         assert await resolve_category_id_by_mcc(session, 8999, TransactionType.EXPENSE) == custom_prof.id
 
+        # Visa Mandatory & CEMEA High Risk codes (MCC_CODES.md)
+        # 5542 (AFD) & 5552 (EV charging) -> Transportation
+        assert await resolve_category_id_by_mcc(session, 5542, TransactionType.EXPENSE) == categories["Transportation"]["id"]
+        assert await resolve_category_id_by_mcc(session, 5552, TransactionType.EXPENSE) == categories["Transportation"]["id"]
+        # 5262 (Marketplaces) -> Shopping
+        assert await resolve_category_id_by_mcc(session, 5262, TransactionType.EXPENSE) == categories["Shopping"]["id"]
+        # 7995 (Gambling) & 9406 (Lottery) -> Entertainment
+        assert await resolve_category_id_by_mcc(session, 7995, TransactionType.EXPENSE) == categories["Entertainment"]["id"]
+        assert await resolve_category_id_by_mcc(session, 9406, TransactionType.EXPENSE) == categories["Entertainment"]["id"]
+        # 5967 (Adult) & 5968 (Negative option subscription) -> Subscriptions
+        assert await resolve_category_id_by_mcc(session, 5967, TransactionType.EXPENSE) == categories["Subscriptions"]["id"]
+        assert await resolve_category_id_by_mcc(session, 5968, TransactionType.EXPENSE) == categories["Subscriptions"]["id"]
+        # 4816 (Cloud/ISP) -> Subscriptions
+        assert await resolve_category_id_by_mcc(session, 4816, TransactionType.EXPENSE) == categories["Subscriptions"]["id"]
+        # 6011 (ATM cash) -> matches Money Transfers default category
+        assert await resolve_category_id_by_mcc(session, 6011, TransactionType.EXPENSE) == expense_transfers_id
+
+        # Range resolution tests (MCC_CODES.md Section 1 item 4 & Section 6)
+        # 3123 (Airlines range 3000-3350) -> Transportation
+        assert await resolve_category_id_by_mcc(session, 3123, TransactionType.EXPENSE) == categories["Transportation"]["id"]
+        # 3400 (Car rental range 3351-3499) -> Transportation
+        assert await resolve_category_id_by_mcc(session, 3400, TransactionType.EXPENSE) == categories["Transportation"]["id"]
+        # 3600 (Hotels range 3501-3883) -> Transportation
+        assert await resolve_category_id_by_mcc(session, 3600, TransactionType.EXPENSE) == categories["Transportation"]["id"]
+        # 8049 (Healthcare range 8000-8099) -> Health & Fitness
+        assert await resolve_category_id_by_mcc(session, 8049, TransactionType.EXPENSE) == categories["Health & Fitness"]["id"]
+        # 5655 (Apparel range 5600-5699) -> Shopping
+        assert await resolve_category_id_by_mcc(session, 5655, TransactionType.EXPENSE) == categories["Shopping"]["id"]
+
         # Fallback category resolves or creates Other
         fallback_id = await resolve_fallback_other_category(session, TransactionType.EXPENSE)
         assert fallback_id is not None
 
         # Unknown or None MCC returns None (before fallback is applied)
         assert await resolve_category_id_by_mcc(session, 99999, TransactionType.EXPENSE) is None
+        assert await resolve_category_id_by_mcc(session, -1, TransactionType.EXPENSE) is None
         assert await resolve_category_id_by_mcc(session, None, TransactionType.EXPENSE) is None
 
 

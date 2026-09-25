@@ -38,13 +38,6 @@ class MonobankIntegrationSet(BaseModel):
     account_id: int = Field(description="Aurum account ID where synced transactions land")
 
 
-class BybitIntegrationSet(BaseModel):
-    """Payload for saving/updating Bybit Card credentials."""
-
-    api_key: str = Field(min_length=5, description="Bybit API key")
-    api_secret: str = Field(min_length=5, description="Bybit API secret")
-    account_id: int = Field(description="Aurum account ID where synced transactions land")
-
 
 class IntegrationSyncResult(BaseModel):
     """Summary returned after a sync run."""

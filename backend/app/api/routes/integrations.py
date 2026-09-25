@@ -1,8 +1,7 @@
 """Integrations API routes.
 
-GET  /integrations            → list both providers (masked read)
+GET  /integrations            → list providers (masked read)
 PUT  /integrations/monobank   → save/update Monobank token + account
-PUT  /integrations/bybit      → save/update Bybit key + secret + account
 DELETE /integrations/{provider} → remove credentials
 POST /integrations/{provider}/sync → trigger a sync run
 """
@@ -11,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_session
 from app.schemas.integration import (
-    BybitIntegrationSet,
     IntegrationRead,
     IntegrationSyncResult,
     MonobankIntegrationSet,
@@ -22,15 +20,13 @@ from app.services.integration_service import (
     delete_integration,
     list_integrations,
     start_background_sync,
-    sync_bybit,
     sync_monobank,
-    upsert_bybit,
     upsert_monobank,
 )
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
-_VALID_PROVIDERS = {"monobank", "bybit"}
+_VALID_PROVIDERS = {"monobank"}
 
 
 @router.get("", response_model=list[IntegrationRead])
@@ -46,15 +42,6 @@ async def set_monobank(
 ) -> IntegrationRead:
     """Save or replace Monobank token and linked account."""
     return await upsert_monobank(session, payload)
-
-
-@router.put("/bybit", response_model=IntegrationRead)
-async def set_bybit(
-    payload: BybitIntegrationSet,
-    session: AsyncSession = Depends(get_session),
-) -> IntegrationRead:
-    """Save or replace Bybit API key + secret and linked account."""
-    return await upsert_bybit(session, payload)
 
 
 @router.delete("/{provider}", status_code=204)
@@ -89,11 +76,7 @@ async def trigger_sync(
 
     # Check configuration on request session for instant validation feedback
     integration = await _get_integration(session, provider)
-    if (
-        integration is None
-        or (provider == "monobank" and not integration.token_enc)
-        or (provider == "bybit" and not integration.api_key_enc)
-    ):
+    if integration is None or not integration.token_enc:
         return IntegrationSyncResult(provider=provider, synced_count=0, skipped_count=0, error="Not configured")
     if integration.account_id is None:
         return IntegrationSyncResult(provider=provider, synced_count=0, skipped_count=0, error="No account linked")
@@ -101,7 +84,5 @@ async def trigger_sync(
     if background:
         return await start_background_sync(provider, sync_from=payload.sync_from, sync_to=payload.sync_to)
 
-    if provider == "monobank":
-        return await sync_monobank(session, sync_from=payload.sync_from, sync_to=payload.sync_to)
-    return await sync_bybit(session)
+    return await sync_monobank(session, sync_from=payload.sync_from, sync_to=payload.sync_to)
 

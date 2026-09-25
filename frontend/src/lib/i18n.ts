@@ -410,12 +410,6 @@ const ru = {
     "Синхронизация выполняется в фоновом режиме на сервере. Вы можете переходить между вкладками или закрыть страницу.",
   "settings.integrations.monobank.syncFrom": "Синхронизировать с",
   "settings.integrations.monobank.syncTo": "по",
-  "settings.integrations.bybit.keyLabel": "API-ключ",
-  "settings.integrations.bybit.keyPlaceholder": "Bybit API key",
-  "settings.integrations.bybit.secretLabel": "API-секрет",
-  "settings.integrations.bybit.secretPlaceholder": "Bybit API secret",
-  "settings.integrations.bybit.hint":
-    "Создайте ключ на bybit.com → Аккаунт → Управление API. Необходимы права на чтение транзакций карты.",
 
   "recurring.forecast.title": "Прогноз платежей",
   "recurring.forecast.monthsLabel": "Горизонт прогноза:",
@@ -566,7 +560,7 @@ const ru = {
   "settings.integrations.createNewAccount": "Создать новый счёт…",
   "settings.integrations.newAccountName": "Название счёта",
   "settings.integrations.newAccountType": "Тип счёта",
-  "settings.integrations.newAccountNamePlaceholder": "Monobank, Bybit Card…",
+  "settings.integrations.newAccountNamePlaceholder": "Monobank, Карта…",
   "settings.integrations.createAccountButton": "Создать",
 
   "cashFlow.excludeTransfers": "Исключить переводы",
@@ -994,12 +988,6 @@ const en: Record<keyof typeof ru, string> = {
     "Sync is running in the background on the server. You can safely switch tabs or close the page.",
   "settings.integrations.monobank.syncFrom": "Sync from",
   "settings.integrations.monobank.syncTo": "to",
-  "settings.integrations.bybit.keyLabel": "API key",
-  "settings.integrations.bybit.keyPlaceholder": "Bybit API key",
-  "settings.integrations.bybit.secretLabel": "API secret",
-  "settings.integrations.bybit.secretPlaceholder": "Bybit API secret",
-  "settings.integrations.bybit.hint":
-    "Create a key at bybit.com → Account → API Management. Read permissions for card transactions are required.",
 
   "recurring.forecast.title": "Payment forecast",
   "recurring.forecast.monthsLabel": "Forecast horizon:",
@@ -1146,7 +1134,7 @@ const en: Record<keyof typeof ru, string> = {
   "settings.integrations.createNewAccount": "Create new account…",
   "settings.integrations.newAccountName": "Account name",
   "settings.integrations.newAccountType": "Account type",
-  "settings.integrations.newAccountNamePlaceholder": "Monobank, Bybit Card…",
+  "settings.integrations.newAccountNamePlaceholder": "Monobank, Card…",
   "settings.integrations.createAccountButton": "Create",
 
   "cashFlow.excludeTransfers": "Exclude transfers",
